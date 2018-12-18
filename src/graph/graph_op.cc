@@ -3,6 +3,7 @@
  * \file graph/graph.cc
  * \brief Graph operation implementation
  */
+#include <omp.h>
 #include <dgl/graph_op.h>
 #include <algorithm>
 
@@ -114,12 +115,31 @@ IdArray GraphOp::MapParentIdToSubgraphId(IdArray parent_vids, IdArray query) {
   IdArray rst = IdArray::Empty({query_len}, DLDataType{kDLInt, 64, 1}, DLContext{kDLCPU, 0});
   dgl_id_t* rst_data = static_cast<dgl_id_t*>(rst->data);
 
-  const bool is_sorted = std::is_sorted(parent_data, parent_data + parent_len);
+  const bool is_sorted = std::is_sorted(parent_data, parent_data + parent_len)
+	  && std::is_sorted(query_data, query_data + query_len);
   if (is_sorted) {
-#pragma omp parallel for
-    for (int64_t i = 0; i < query_len; i++) {
+#pragma omp parallel
+  {
+    int tid = omp_get_thread_num();
+    int num_threads = omp_get_num_threads();
+    int64_t size = ceil(((double) query_len) / num_threads);
+    int64_t start = size * tid;
+    int64_t end;
+    const dgl_id_t *parent_end;
+    const auto parent_begin = std::lower_bound(parent_data, parent_data + parent_len, query_data[start]);
+    if (parent_begin == parent_data + parent_len) {
+      end = query_len;
+      parent_end = parent_data + parent_len;
+    } else if (size * (tid + 1) < query_len) {
+      end = size * (tid + 1);
+      parent_end = std::lower_bound(parent_begin, parent_data + parent_len, query_data[end]);
+    } else {
+      end = query_len;
+      parent_end = parent_data + parent_len;
+    }
+    for (int64_t i = start; i < end; i++) {
       const dgl_id_t id = query_data[i];
-      const auto it = std::lower_bound(parent_data, parent_data + parent_len, id);
+      const auto it = std::lower_bound(parent_begin, parent_end, id);
       // If the vertex Id doesn't exist, the vid in the subgraph is -1.
       if (it != parent_data + parent_len && *it == id) {
         rst_data[i] = it - parent_data;
@@ -127,6 +147,7 @@ IdArray GraphOp::MapParentIdToSubgraphId(IdArray parent_vids, IdArray query) {
         rst_data[i] = -1;
       }
     }
+  }
   } else {
     std::unordered_map<dgl_id_t, dgl_id_t> parent_map;
     for (int64_t i = 0; i < parent_len; i++) {
