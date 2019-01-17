@@ -54,8 +54,8 @@ def gcn_reduce(node, ind, test=False):
 
 
 class NodeUpdate(gluon.Block):
-    def __init__(self, out_feats, activation=None, dropout=0):
-        super(NodeUpdate, self).__init__()
+    def __init__(self, out_feats, activation=None, dropout=0, **kwargs):
+        super(NodeUpdate, self).__init__(**kwargs)
         self.linear = gluon.nn.Dense(out_feats, activation=activation)
         self.dropout = dropout
 
@@ -74,8 +74,8 @@ class GCNLayer(gluon.Block):
                  out_feats,
                  activation,
                  dropout,
-                 bias=True):
-        super(GCNLayer, self).__init__()
+                 bias=True, **kwargs):
+        super(GCNLayer, self).__init__(**kwargs)
         self.ind = ind
         self.node_update = NodeUpdate(out_feats, activation, dropout)
 
@@ -103,17 +103,18 @@ class GCN(gluon.Block):
                  n_classes,
                  n_layers,
                  activation,
-                 dropout):
-        super(GCN, self).__init__()
+                 dropout, **kwargs):
+        super(GCN, self).__init__(**kwargs)
         self.n_layers = n_layers
         self.dropout = dropout
-        self.linear = gluon.nn.Dense(n_hidden, activation)
-        self.layers = gluon.nn.Sequential()
-        # hidden layers
-        for i in range(1, n_layers):
-            self.layers.add(GCNLayer(i, n_hidden, n_hidden, activation, dropout))
-        # output layer
-        self.layers.add(GCNLayer(n_layers, n_hidden, n_classes, None, dropout))
+        with self.name_scope():
+            self.linear = gluon.nn.Dense(n_hidden, activation)
+            self.layers = gluon.nn.Sequential()
+            # hidden layers
+            for i in range(1, n_layers):
+                self.layers.add(GCNLayer(i, n_hidden, n_hidden, activation, dropout))
+            # output layer
+            self.layers.add(GCNLayer(n_layers, n_hidden, n_classes, None, dropout))
 
 
     def forward(self, subg, subg_edges_per_hop, nodes_per_hop):
@@ -131,11 +132,61 @@ class GCN(gluon.Block):
         return h, new_history
 
 
-def update_history(g, n_layers, new_history, nodes_per_hop):
-    for i in range(n_layers):
-        indexes = mx.nd.array(nodes_per_hop[n_layers-i]).astype('int64')
-        hu = {'h_%d' % (i+1) : new_history[i]}
-        g.set_n_repr(hu, indexes, inplace=True)
+class GCNForwardLayer(gluon.Block):
+    def __init__(self,
+                 ind,
+                 in_feats,
+                 out_feats,
+                 activation,
+                 dropout,
+                 bias=True, **kwargs):
+        super(GCNForwardLayer, self).__init__(**kwargs)
+        self.ind = ind
+        self.node_update = NodeUpdate(out_feats, activation, dropout)
+
+    def forward(self, h, g):
+        g.ndata['h'] = h
+        # first layer or test
+        g.update_all(partial(gcn_msg, ind=self.ind, test=True),
+                     partial(gcn_reduce, ind=self.ind, test=True),
+                     self.node_update)
+        agg_h = g.ndata.pop('h')
+        h = g.ndata.pop('accum')
+        return agg_h, h
+
+
+class GCNForward(gluon.Block):
+    def __init__(self,
+                 in_feats,
+                 n_hidden,
+                 n_classes,
+                 n_layers,
+                 activation,
+                 dropout, **kwargs):
+        super(GCNForward, self).__init__(**kwargs)
+        self.n_layers = n_layers
+        print("gcn infer: " + str(n_layers))
+        with self.name_scope():
+            #self.linear = gluon.nn.Dense(n_hidden, activation)
+            self.layers = gluon.nn.Sequential()
+            # input layer
+            self.layers.add(GCNForwardLayer(0, in_feats, n_hidden, activation, dropout))
+            # hidden layers
+            for i in range(1, n_layers):
+                self.layers.add(GCNForwardLayer(i, n_hidden, n_hidden, activation, dropout))
+            # output layer
+            self.layers.add(GCNForwardLayer(n_layers, n_hidden, n_classes, None, dropout))
+
+
+    def forward(self, g):
+        h = g.ndata['in']
+        agg_history = []
+        for i, layer in enumerate(self.layers):
+            agg_h, h = layer(h, g)
+            agg_history.append(agg_h)
+            g.ndata['h_%d' % (i + 1)] = h
+            g.ndata['agg_h_%d' % i] = agg_h
+        return agg_history
 
 
 def evaluate(model, g, num_hops, labels, mask):
@@ -214,15 +265,25 @@ def main(args):
                 n_classes,
                 n_layers,
                 'relu',
-                args.dropout)
+                args.dropout, prefix='app')
     model.initialize(ctx=ctx)
     n_train_samples = train_mask.sum().asscalar()
     loss_fcn = gluon.loss.SoftmaxCELoss()
+    model(g, [None for i in range(num_hops)], [None for i in range(num_hops)])
+
+    infer_model = GCNForward(in_feats,
+                             n_hidden,
+                             n_classes,
+                             n_layers,
+                             'relu',
+                             args.dropout, prefix='app')
+    infer_model.initialize(ctx=ctx)
+    infer_model(g)
 
     # use optimizer
     print(model.collect_params())
     trainer = gluon.Trainer(model.collect_params(), 'adam',
-            {'learning_rate': args.lr, 'wd': args.weight_decay})
+            {'learning_rate': args.lr, 'wd': args.weight_decay}, kvstore=mx.kv.create('local'))
 
     # initialize graph
     dur = []
@@ -233,8 +294,11 @@ def main(args):
 
         subg, subg_edges_per_hop, nodes_per_hop = sample_subgraph(g, seed_nodes, num_hops, num_neighbors)
         for i in range(n_layers):
+            tmp = g.ndata['agg_h_%d' % (i+1)]
             g.pull(nodes_per_hop[i], fn.copy_src(src='h_%d' % (i+1), out='m'),
                    fn.sum(msg='m', out='agg_h_%d' % (i+1)))
+            print('partial: agg_h_%d' % (i+1))
+            print(g.ndata['agg_h_%d' % (i+1)][nodes_per_hop[i]] - tmp[nodes_per_hop[i]])
 
         subg_train_idx = subg.map_to_subgraph_nid(train_idx)
         subg.copy_from_parent()
@@ -250,7 +314,13 @@ def main(args):
         #print(loss.asnumpy())
         loss.backward()
         trainer.step(batch_size=1)
-        update_history(g, n_layers, uh, nodes_per_hop)
+
+        infer_params = infer_model.collect_params()
+        for key in infer_params:
+            idx = trainer._param2idx[key]
+            trainer._kvstore.pull(idx, out=infer_params[key].data())
+        infer_model(g)
+
         test_acc_list.append(evaluate(model, g, num_hops, labels, test_mask))
 
 
