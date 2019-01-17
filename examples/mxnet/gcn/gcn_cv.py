@@ -150,7 +150,7 @@ class GCNForwardLayer(gluon.Block):
         g.update_all(partial(gcn_msg, ind=self.ind, test=True),
                      partial(gcn_reduce, ind=self.ind, test=True),
                      self.node_update)
-        agg_h = g.ndata.pop('h')
+        agg_h = g.ndata.pop('h') / g.ndata['deg_norm']
         h = g.ndata.pop('accum')
         return agg_h, h
 
@@ -293,13 +293,6 @@ def main(args):
             t0 = time.time()
 
         subg, subg_edges_per_hop, nodes_per_hop = sample_subgraph(g, seed_nodes, num_hops, num_neighbors)
-        for i in range(n_layers):
-            tmp = g.ndata['agg_h_%d' % (i+1)]
-            g.pull(nodes_per_hop[i], fn.copy_src(src='h_%d' % (i+1), out='m'),
-                   fn.sum(msg='m', out='agg_h_%d' % (i+1)))
-            print('partial: agg_h_%d' % (i+1))
-            print(g.ndata['agg_h_%d' % (i+1)][nodes_per_hop[i]] - tmp[nodes_per_hop[i]])
-
         subg_train_idx = subg.map_to_subgraph_nid(train_idx)
         subg.copy_from_parent()
         # forward
