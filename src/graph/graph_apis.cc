@@ -75,13 +75,16 @@ PackedFunc ConvertSubgraphToPackedFunc(const std::vector<SampledSubgraph>& sg) {
         GraphInterface* gptr = sg[which].graph->Reset();
         GraphHandle ghandle = gptr;
         *rv = ghandle;
-      } else if (which >= (int) sg.size() && which < (int) sg.size() * 2) {
+      } else if (which >= static_cast<int>(sg.size()) && which < static_cast<int>(sg.size()) * 2) {
         *rv = std::move(sg[which - sg.size()].induced_vertices);
-      } else if (which >= (int) sg.size() * 2 && which < (int) sg.size() * 3) {
+      } else if (which >= static_cast<int>(sg.size()) * 2
+                 && which < static_cast<int>(sg.size()) * 3) {
         *rv = std::move(sg[which - sg.size() * 2].induced_edges);
-      } else if (which >= (int) sg.size() * 3 && which < (int) sg.size() * 4) {
+      } else if (which >= static_cast<int>(sg.size()) * 3
+                 && which < static_cast<int>(sg.size()) * 4) {
         *rv = std::move(sg[which - sg.size() * 3].layer_offsets);
-      } else if (which >= (int) sg.size() * 4 && which < (int) sg.size() * 5) {
+      } else if (which >= static_cast<int>(sg.size()) * 4
+                 && which < static_cast<int>(sg.size()) * 5) {
         *rv = std::move(sg[which - sg.size() * 4].sample_prob);
       } else {
         LOG(FATAL) << "invalid choice";
