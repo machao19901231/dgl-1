@@ -70,18 +70,18 @@ PackedFunc ConvertSubgraphToPackedFunc(const Subgraph& sg) {
 // Convert Sampled Subgraph structures to PackedFunc.
 PackedFunc ConvertSubgraphToPackedFunc(const std::vector<SampledSubgraph>& sg) {
   auto body = [sg] (DGLArgs args, DGLRetValue* rv) {
-      const size_t which = args[0];
+      const int which = args[0];
       if (which < sg.size()) {
         GraphInterface* gptr = sg[which].graph->Reset();
         GraphHandle ghandle = gptr;
         *rv = ghandle;
-      } else if (which >= sg.size() && which < sg.size() * 2) {
+      } else if (which >= (int) sg.size() && which < (int) sg.size() * 2) {
         *rv = std::move(sg[which - sg.size()].induced_vertices);
-      } else if (which >= sg.size() * 2 && which < sg.size() * 3) {
+      } else if (which >= (int) sg.size() * 2 && which < (int) sg.size() * 3) {
         *rv = std::move(sg[which - sg.size() * 2].induced_edges);
-      } else if (which >= sg.size() * 3 && which < sg.size() * 4) {
-        *rv = std::move(sg[which - sg.size() * 3].layer_ids);
-      } else if (which >= sg.size() * 4 && which < sg.size() * 5) {
+      } else if (which >= (int) sg.size() * 3 && which < (int) sg.size() * 4) {
+        *rv = std::move(sg[which - sg.size() * 3].layer_offsets);
+      } else if (which >= (int) sg.size() * 4 && which < (int) sg.size() * 5) {
         *rv = std::move(sg[which - sg.size() * 4].sample_prob);
       } else {
         LOG(FATAL) << "invalid choice";
