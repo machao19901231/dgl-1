@@ -109,9 +109,9 @@ class GCNForwardLayer(gluon.Block):
     def forward(self, h, g):
         g.ndata['h'] = h
         # first layer or test
-        g.update_all(partial(gcn_msg, ind=self.ind, test=True),
-                     partial(gcn_reduce, ind=self.ind, test=True),
-                     self.node_update)
+        g.update_all(fn.copy_src(src='h', out='m'), fn.sum(msg='m', out='h'))
+        g.ndata['h'] = g.ndata['h'] * g.ndata['deg_norm']
+        g.apply_nodes(self.node_update)
         agg_h = g.ndata.pop('h')
         h = g.ndata.pop('accum')
         return agg_h, h
@@ -156,7 +156,7 @@ class GCN(gluon.Block):
             return h, None
 
 
-class GCNForward(gluon.Block):
+class GCNUpdate(gluon.Block):
     def __init__(self,
                  in_feats,
                  n_hidden,
@@ -164,7 +164,7 @@ class GCNForward(gluon.Block):
                  n_layers,
                  activation,
                  dropout, **kwargs):
-        super(GCNForward, self).__init__(**kwargs)
+        super(GCNUpdate, self).__init__(**kwargs)
         self.n_layers = n_layers
         with self.name_scope():
             #self.linear = gluon.nn.Dense(n_hidden, activation)
@@ -185,11 +185,10 @@ class GCNForward(gluon.Block):
             agg_h, h = layer(h, g)
             agg_history.append(agg_h)
             g.ndata['agg_h_%d' % i] = agg_h
-        return agg_history
+        return h
 
 
-def evaluate(model, g, num_hops, labels, mask):
-    pred, _ = model(g, False)
+def evaluate(pred, num_hops, labels, mask):
     pred = pred.argmax(axis=1)
     accuracy = ((pred == labels) * mask).sum() / mask.sum().asscalar()
     acc = accuracy.asscalar()
@@ -277,14 +276,14 @@ def main(args):
     loss_fcn = gluon.loss.SoftmaxCELoss()
     model(g, False)
 
-    infer_model = GCNForward(in_feats,
-                             n_hidden,
-                             n_classes,
-                             n_layers,
-                             'relu',
-                             args.dropout, prefix='app')
-    infer_model.initialize(ctx=ctx)
-    infer_model(g)
+    update_model = GCNUpdate(in_feats,
+                            n_hidden,
+                            n_classes,
+                            n_layers,
+                            'relu',
+                            args.dropout, prefix='app')
+    update_model.initialize(ctx=ctx)
+    update_model(g)
 
     # use optimizer
     print(model.collect_params())
@@ -314,13 +313,13 @@ def main(args):
         trainer.step(batch_size=1)
         #update_history(g, n_layers, uh, nodes_per_hop)
 
-        infer_params = infer_model.collect_params()
+        infer_params = update_model.collect_params()
         for key in infer_params:
             idx = trainer._param2idx[key]
             trainer._kvstore.pull(idx, out=infer_params[key].data())
-        infer_model(g)
+        pred = update_model(g)
 
-        test_acc_list.append(evaluate(model, g, num_hops, labels, test_mask))
+        test_acc_list.append(evaluate(pred, num_hops, labels, test_mask))
 
 
 if __name__ == '__main__':
