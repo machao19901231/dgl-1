@@ -11,32 +11,6 @@ from dgl import utils
 from functools import partial
 
 
-def sample_subgraph(g, seed_nodes, num_hops, num_neighbors):
-    induced_nodes = []
-    seeds = seed_nodes
-    nodes_per_hop = [seeds]
-    parent_uv_edges_per_hop = []
-    for _ in range(num_hops):
-        for subg, aux in dgl.contrib.sampling.NeighborSampler(g, 1000000, num_neighbors,
-                                                              neighbor_type='in',
-                                                              seed_nodes=np.array(seeds),
-                                                              return_seed_id=True):
-            subg_src, subg_dst = subg.edges()
-            parent_nid = subg.parent_nid
-            src = parent_nid[subg_src]
-            dst = parent_nid[subg_dst]
-            parent_uv_edges_per_hop.append((src.asnumpy(), dst.asnumpy()))
-            seeds = list(np.unique(src.asnumpy()))
-            nodes_per_hop.append(seeds)
-            induced_nodes.extend(list(parent_nid.asnumpy()))
-
-    subgraph = g.subgraph(list(np.unique(np.array(induced_nodes))))
-    subg_uv_edges_per_hop = [(subgraph.map_to_subgraph_nid(src).asnumpy(),
-                              subgraph.map_to_subgraph_nid(dst).asnumpy())
-                             for src, dst in parent_uv_edges_per_hop]
-    return subgraph, subg_uv_edges_per_hop, nodes_per_hop
-
-
 def gcn_msg(edge, ind, test=False):
     if test:
         msg = edge.src['h']
