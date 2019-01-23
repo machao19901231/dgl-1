@@ -79,19 +79,17 @@ class GCNLayer(gluon.Block):
         self.ind = ind
         self.node_update = NodeUpdate(out_feats, activation, dropout)
 
-    def forward(self, h, subg, subg_edges):
+    def forward(self, h, subg, layer_nodes):
         subg.ndata['h'] = h
-        if self.ind == 0 or subg_edges is None:
+        if self.ind == 0 or layer_nodes is None:
             # first layer or test
             subg.update_all(partial(gcn_msg, ind=self.ind, test=True),
                             partial(gcn_reduce, ind=self.ind, test=True),
                             self.node_update)
         else:
             # control variate
-            subg.send_and_recv(subg_edges, partial(gcn_msg, ind=self.ind),
-                               partial(gcn_reduce, ind=self.ind),
-                               self.node_update)
-
+            subg.pull(layer_nodes, partial(gcn_msg, ind=self.ind),
+                      partial(gcn_reduce, ind=self.ind), self.node_update)
         h = subg.ndata.pop('accum')
         return h
 
@@ -135,22 +133,27 @@ class GCN(gluon.Block):
             # input layer
             self.layers.add(GCNLayer(0, in_feats, n_hidden, activation, dropout))
             # hidden layers
-            for i in range(1, n_layers):
+            for i in range(1, n_layers-1):
                 self.layers.add(GCNLayer(i, n_hidden, n_hidden, activation, dropout))
             # output layer
-            self.layers.add(GCNLayer(n_layers, n_hidden, n_classes, None, dropout))
+            self.layers.add(GCNLayer(n_layers-1, n_hidden, n_classes, None, dropout))
 
 
-    def forward(self, subg, subg_edges_per_hop, nodes_per_hop):
+    def forward(self, subg, is_train):
         h = subg.ndata['in']
         new_history = []
-        for i, layer in enumerate(self.layers):
-            h = layer(h, subg, subg_edges_per_hop[self.n_layers-i])
-            # new history to be updated after one SGD iteration
-            if i < self.n_layers and subg_edges_per_hop[0] is not None:
-                indexes = subg.map_to_subgraph_nid(nodes_per_hop[self.n_layers-i])
-                new_history.append(h.detach().copy()[indexes])
-        return h, new_history
+        if is_train:
+            for i, layer in enumerate(self.layers):
+                indexes = subg.layer_nid(self.n_layers-i-1)
+                h = layer(h, subg, indexes)
+                # new history to be updated after one SGD iteration
+                if i < self.n_layers:
+                    new_history.append(h.detach().copy()[indexes])
+            return h[indexes], new_history
+        else:
+            for i, layer in enumerate(self.layers):
+                h = layer(h, subg, None)
+            return h, None
 
 
 class GCNForward(gluon.Block):
@@ -169,10 +172,10 @@ class GCNForward(gluon.Block):
             # input layer
             self.layers.add(GCNForwardLayer(0, in_feats, n_hidden, activation, dropout))
             # hidden layers
-            for i in range(1, n_layers):
+            for i in range(1, n_layers-1):
                 self.layers.add(GCNForwardLayer(i, n_hidden, n_hidden, activation, dropout))
             # output layer
-            self.layers.add(GCNForwardLayer(n_layers, n_hidden, n_classes, None, dropout))
+            self.layers.add(GCNForwardLayer(n_layers-1, n_hidden, n_classes, None, dropout))
 
 
     def forward(self, g):
@@ -181,13 +184,12 @@ class GCNForward(gluon.Block):
         for i, layer in enumerate(self.layers):
             agg_h, h = layer(h, g)
             agg_history.append(agg_h)
-            print("compute agg h of layer %d" % i)
             g.ndata['agg_h_%d' % i] = agg_h
         return agg_history
 
 
 def evaluate(model, g, num_hops, labels, mask):
-    pred, _ = model(g, [None for i in range(num_hops)], [None for i in range(num_hops)])
+    pred, _ = model(g, False)
     pred = pred.argmax(axis=1)
     accuracy = ((pred == labels) * mask).sum() / mask.sum().asscalar()
     acc = accuracy.asscalar()
@@ -273,7 +275,7 @@ def main(args):
     model.initialize(ctx=ctx)
     n_train_samples = train_mask.sum().asscalar()
     loss_fcn = gluon.loss.SoftmaxCELoss()
-    model(g, [None for i in range(num_hops)], [None for i in range(num_hops)])
+    model(g, False)
 
     infer_model = GCNForward(in_feats,
                              n_hidden,
@@ -296,18 +298,16 @@ def main(args):
         if epoch >= 3:
             t0 = time.time()
 
-        subg, subg_edges_per_hop, nodes_per_hop = sample_subgraph(g, seed_nodes, num_hops, num_neighbors)
-        subg_train_idx = subg.map_to_subgraph_nid(train_idx).asnumpy()
-        subg.copy_from_parent()
-        # forward
-        subg_train_mask = np.zeros((len(subg.parent_nid),))
-        subg_train_mask[subg_train_idx] = 1
-        subg_train_mask = mx.nd.array(subg_train_mask)
-
-        with mx.autograd.record():
-            pred, uh = model(subg, subg_edges_per_hop, nodes_per_hop)
-            loss = loss_fcn(pred, labels[subg.parent_nid], mx.nd.expand_dims(subg_train_mask, 1))
-            loss = loss.sum() / n_train_samples
+        for subg, aux in dgl.contrib.sampling.NeighborSampler(g, 1000000, num_neighbors,
+                                                              neighbor_type='in', num_hops=args.n_layers,
+                                                              seed_nodes=np.array(seed_nodes),
+                                                              return_seed_id=True):
+            subg.copy_from_parent()
+            # forward
+            with mx.autograd.record():
+                pred, uh = model(subg, True)
+                loss = loss_fcn(pred, labels[subg.layer_parent_nid(0)])
+                loss = loss.sum() / n_train_samples
 
         #print(loss.asnumpy())
         loss.backward()
