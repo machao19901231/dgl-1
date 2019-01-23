@@ -246,7 +246,6 @@ def main(args):
                 'relu',
                 args.dropout, prefix='app')
     model.initialize(ctx=ctx)
-    n_train_samples = train_mask.sum().asscalar()
     loss_fcn = gluon.loss.SoftmaxCELoss()
     model(g, False)
 
@@ -271,7 +270,7 @@ def main(args):
         if epoch >= 3:
             t0 = time.time()
 
-        for subg, aux in dgl.contrib.sampling.NeighborSampler(g, 1000000, num_neighbors,
+        for subg, aux in dgl.contrib.sampling.NeighborSampler(g, 20, num_neighbors,
                                                               neighbor_type='in', num_hops=args.n_layers,
                                                               seed_nodes=np.array(seed_nodes),
                                                               return_seed_id=True):
@@ -280,12 +279,11 @@ def main(args):
             with mx.autograd.record():
                 pred, uh = model(subg, True)
                 loss = loss_fcn(pred, labels[subg.layer_parent_nid(0)])
-                loss = loss.sum() / n_train_samples
+                loss = loss.sum() / len(subg.layer_nid(0))
 
-        #print(loss.asnumpy())
-        loss.backward()
-        trainer.step(batch_size=1)
-        #update_history(g, n_layers, uh, nodes_per_hop)
+            #print(loss.asnumpy())
+            loss.backward()
+            trainer.step(batch_size=1)
 
         infer_params = update_model.collect_params()
         for key in infer_params:
