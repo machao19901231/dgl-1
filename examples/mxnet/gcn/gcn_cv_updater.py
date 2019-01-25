@@ -101,6 +101,7 @@ class GCN(gluon.Block):
                  dropout, **kwargs):
         super(GCN, self).__init__(**kwargs)
         self.n_layers = n_layers
+        assert n_layers >= 2
         with self.name_scope():
             #self.linear = gluon.nn.Dense(n_hidden, activation)
             self.layers = gluon.nn.Sequential()
@@ -140,6 +141,7 @@ class GCNUpdate(gluon.Block):
                  dropout, **kwargs):
         super(GCNUpdate, self).__init__(**kwargs)
         self.n_layers = n_layers
+        assert n_layers >= 2
         with self.name_scope():
             #self.linear = gluon.nn.Dense(n_hidden, activation)
             self.layers = gluon.nn.Sequential()
@@ -266,11 +268,12 @@ def main(args):
     # initialize graph
     dur = []
     test_acc_list = []
+    num_trains = int(np.sum(data.train_mask))
     for epoch in range(args.n_epochs):
         if epoch >= 3:
             t0 = time.time()
 
-        for subg, aux in dgl.contrib.sampling.NeighborSampler(g, 20, num_neighbors,
+        for subg, aux in dgl.contrib.sampling.NeighborSampler(g, num_trains, num_neighbors,
                                                               neighbor_type='in', num_hops=args.n_layers,
                                                               seed_nodes=np.array(seed_nodes),
                                                               return_seed_id=True):
