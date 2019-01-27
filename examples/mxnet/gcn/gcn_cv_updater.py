@@ -23,7 +23,7 @@ def gcn_reduce(node, ind, test=False):
     if test:
         accum = mx.nd.sum(node.mailbox['m'], 1) * node.data['deg_norm']
     else:
-        accum = mx.nd.sum(node.mailbox['m'], 1) * node.data['norm'] + node.data['agg_h_%d' % ind] * node.data['deg_norm']
+        accum = mx.nd.sum(node.mailbox['m'], 1) * node.data['norm'] + node.data['agg_h_%d' % ind]
     return {'h': accum}
 
 
@@ -38,6 +38,7 @@ class NodeUpdate(gluon.Block):
         if self.dropout:
             accum = mx.nd.Dropout(accum, p=self.dropout)
         accum = self.linear(accum)
+        #accum = mx.nd.concat(self.linear(accum), node.data['h'], dim=1)
         return {'accum': accum}
 
 
@@ -51,15 +52,20 @@ class GCNLayer(gluon.Block):
                  bias=True, **kwargs):
         super(GCNLayer, self).__init__(**kwargs)
         self.ind = ind
+        self.in_feats = in_feats
         self.node_update = NodeUpdate(out_feats, activation, dropout)
 
     def forward(self, h, subg, layer_nodes):
         subg.ndata['h'] = h
-        if self.ind == 0 or layer_nodes is None:
-            # first layer or test
+        if layer_nodes is None:
+            # test
             subg.update_all(partial(gcn_msg, ind=self.ind, test=True),
                             partial(gcn_reduce, ind=self.ind, test=True),
                             self.node_update)
+        elif self.ind == 0:
+            subg.ndata['h'] = subg.ndata['agg_h_0']
+            assert subg.ndata['h'].shape[1] == self.in_feats
+            subg.apply_nodes(self.node_update)
         else:
             # control variate
             subg.pull(layer_nodes, partial(gcn_msg, ind=self.ind),
@@ -82,7 +88,6 @@ class GCNForwardLayer(gluon.Block):
 
     def forward(self, h, g):
         g.ndata['h'] = h
-        # first layer or test
         g.update_all(fn.copy_src(src='h', out='m'), fn.sum(msg='m', out='h'))
         g.ndata['h'] = g.ndata['h'] * g.ndata['deg_norm']
         g.apply_nodes(self.node_update)
@@ -116,15 +121,11 @@ class GCN(gluon.Block):
 
     def forward(self, subg, is_train):
         h = subg.ndata['in']
-        new_history = []
         if is_train:
             for i, layer in enumerate(self.layers):
                 indexes = subg.layer_nid(self.n_layers-i-1)
                 h = layer(h, subg, indexes)
-                # new history to be updated after one SGD iteration
-                if i < self.n_layers:
-                    new_history.append(h.detach().copy()[indexes])
-            return h[indexes], new_history
+            return h[indexes]
         else:
             for i, layer in enumerate(self.layers):
                 h = layer(h, subg, None)
@@ -156,10 +157,9 @@ class GCNUpdate(gluon.Block):
 
     def forward(self, g):
         h = g.ndata['in']
-        agg_history = []
         for i, layer in enumerate(self.layers):
             agg_h, h = layer(h, g)
-            agg_history.append(agg_h)
+            g.ndata['h_%d' % (i + 1)] = h
             g.ndata['agg_h_%d' % i] = agg_h
         return h
 
@@ -237,10 +237,6 @@ def main(args):
     n_layers = args.n_layers
     n_hidden = args.n_hidden
 
-    for i in range(n_layers):
-        g.ndata['h_%d' % (i+1)] = mx.nd.zeros((features.shape[0], n_hidden))
-        g.ndata['agg_h_%d' % (i+1)] = mx.nd.zeros((features.shape[0], n_hidden))
-
     model = GCN(in_feats,
                 n_hidden,
                 n_classes,
@@ -280,7 +276,7 @@ def main(args):
             subg.copy_from_parent()
             # forward
             with mx.autograd.record():
-                pred, uh = model(subg, True)
+                pred = model(subg, True)
                 loss = loss_fcn(pred, labels[subg.layer_parent_nid(0)])
                 loss = loss.sum() / len(subg.layer_nid(0))
 
