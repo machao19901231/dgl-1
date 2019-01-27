@@ -273,7 +273,7 @@ def main(args):
         if epoch >= 3:
             t0 = time.time()
 
-        for subg, aux in dgl.contrib.sampling.NeighborSampler(g, num_trains, num_neighbors,
+        for subg, aux in dgl.contrib.sampling.NeighborSampler(g, args.batch_size, num_neighbors,
                                                               neighbor_type='in', num_hops=args.n_layers,
                                                               seed_nodes=np.array(seed_nodes),
                                                               return_seed_id=True):
@@ -308,6 +308,8 @@ if __name__ == '__main__':
             help="learning rate")
     parser.add_argument("--n-epochs", type=int, default=200,
             help="number of training epochs")
+    parser.add_argument("--batch-size", type=int, default=30,
+            help="batch size")
     parser.add_argument("--n-hidden", type=int, default=16,
             help="number of hidden gcn units")
     parser.add_argument("--n-layers", type=int, default=1,
