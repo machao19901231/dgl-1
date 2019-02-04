@@ -187,8 +187,8 @@ def main(args):
     test_mask = mx.nd.array(data.test_mask)
     in_feats = features.shape[1]
     n_classes = data.num_labels
-    n_nodes = data.graph.number_of_nodes()
-    n_edges = data.graph.number_of_edges()
+    n_nodes = data.graph.shape[0]
+    n_edges = data.graph.nnz
     print("""----Data statistics------'
       #Nodes %d
       #Edges %d
@@ -245,7 +245,14 @@ def main(args):
                 args.dropout, prefix='app')
     model.initialize(ctx=ctx)
     loss_fcn = gluon.loss.SoftmaxCELoss()
-    model(g, False)
+
+    sampler = dgl.contrib.sampling.NeighborSampler(g, args.batch_size, num_neighbors,
+                                                   neighbor_type='in', num_hops=args.n_layers,
+                                                   seed_nodes=np.array(seed_nodes))
+    sampler = iter(sampler)
+    subg, _ = next(sampler)
+    subg.copy_from_parent()
+    model(subg, False)
 
     update_model = GCNUpdate(in_feats,
                             n_hidden,

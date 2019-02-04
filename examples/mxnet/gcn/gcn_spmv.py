@@ -101,7 +101,7 @@ def main(args):
     test_mask = mx.nd.array(data.test_mask)
     in_feats = features.shape[1]
     n_classes = data.num_labels
-    n_edges = data.graph.number_of_edges()
+    n_edges = data.graph.nnz
     print("""----Data statistics------'
       #Edges %d
       #Classes %d
