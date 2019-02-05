@@ -68,8 +68,11 @@ class GCNLayer(gluon.Block):
             subg.apply_nodes(self.node_update)
         else:
             # control variate
-            subg.pull(layer_nodes, partial(gcn_msg, ind=self.ind),
-                      partial(gcn_reduce, ind=self.ind), self.node_update)
+            subg.ndata['tmp'] = subg.ndata['h'] - subg.ndata['h_%d' % self.ind]
+            subg.pull(layer_nodes, fn.copy_src(src='tmp', out='m'), fn.sum(msg='m', out='h'))
+            subg.ndata['h'] = subg.ndata['h'] * subg.ndata['norm'] + subg.ndata['agg_h_%d' % self.ind]
+            subg.apply_nodes(self.node_update)
+            subg.ndata.pop('tmp')
         h = subg.ndata.pop('accum')
         return h
 
