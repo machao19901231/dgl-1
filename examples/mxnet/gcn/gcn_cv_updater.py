@@ -128,6 +128,7 @@ class GCN(gluon.Block):
             for i, layer in enumerate(self.layers):
                 indexes = subg.layer_nid(self.n_layers-i-1)
                 h = layer(h, subg, indexes)
+                indexes = indexes.as_in_context(h.context)
             return h[indexes]
         else:
             for i, layer in enumerate(self.layers):
@@ -228,7 +229,7 @@ def main(args):
     if cuda:
         norm = norm.as_in_context(ctx)
     g.ndata['norm'] = norm
-    g.ndata['deg_norm'] = mx.nd.expand_dims(1./g.in_degrees().astype('float32'), 1)
+    g.ndata['deg_norm'] = mx.nd.expand_dims(1./g.in_degrees().astype('float32'), 1).as_in_context(ctx)
     g.ndata['in'] = features
 
     num_data = len(train_mask)
@@ -287,7 +288,7 @@ def main(args):
             # forward
             with mx.autograd.record():
                 pred = model(subg, True)
-                loss = loss_fcn(pred, labels[subg.layer_parent_nid(0)])
+                loss = loss_fcn(pred, labels[subg.layer_parent_nid(0).as_in_context(labels.context)])
                 loss = loss.sum() / len(subg.layer_nid(0))
 
             #print(loss.asnumpy())
