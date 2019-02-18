@@ -3,11 +3,12 @@ import dgl
 import mxnet as mx
 
 class Optimizer(object):
-    def __init__(self):
+    def __init__(self, graph_name):
         self.multi_precision = False
         self.aggregate_num = 0
         self.initialized = {}
         self.weights = {}
+        self.graph = dgl.DGLGraph(load_graph(graph_name), readonly=True)
 
     def create_state_multi_precision(self, index, weight):
         print("create multi-precision state")
@@ -18,11 +19,18 @@ class Optimizer(object):
         return self
 
     def update_multi_precision(self, index, weight, grad, state):
-        print("update multi-precision")
-        if isinstance(weight, mx.nd.sparse.RowSparseNDArray):
+        print("update multi-precision: " + index)
+        # Update all node embeddings
+        if index.startswith("dgl:update_all:layer-"):
+            layer_id = get_layer_id(index)
+            self.graph.update_all(self.msg_funcs[layer_id], self.reduce_funcs[layer_id],
+                                  self.update_funcs[layer_id])
+        # Update node embeddings
+        elif isinstance(weight, mx.nd.sparse.RowSparseNDArray):
             #TODO this isn't a right way to copy data.
             grad.copyto(self.weights[index])
         else:
+            # Update model weights.
             grad.copyto(self.weights[index])
         
 
