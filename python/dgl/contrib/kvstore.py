@@ -115,6 +115,7 @@ class DGLKVstore(object):
         for name in params:
             if name not in self._params:
                 self._kv.init(name, params[name])
+                self._params.update({name : None})
             self._kv.push(name, params[name])
 
     def update_all(self, msg_func, reduce_func, update_func):
