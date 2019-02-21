@@ -37,4 +37,5 @@ update = NodeUpdate(10)
 update.initialize(ctx=mx.cpu())
 g.ndata['h'] = mx.nd.ones((g.number_of_nodes(), 10))
 g.update_all(msg_func, reduce_func, update)
-kv.update_all(msg_func, reduce_func, update)
+for _ in range(10):
+    kv.update_all(msg_func, reduce_func, update)
