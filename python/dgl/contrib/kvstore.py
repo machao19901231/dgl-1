@@ -47,20 +47,21 @@ class Optimizer(object):
         self.multi_precision = False
         self.aggregate_num = 0
         self.initialized = {}
+        self.embeddings = {}
         self.weights = {}
         self.graph = dgl.DGLGraph(load_graph(graph_name), readonly=True)
 
     def create_state_multi_precision(self, index, weight):
-        print("create multi-precision state")
         if isinstance(weight, mx.nd.sparse.RowSparseNDArray):
             data = mx.nd.ones(shape=weight.shape, dtype=weight.dtype)
             data.copyto(weight)
             self.graph.ndata[index] = weight
-        self.weights.update({index : weight})
+            self.embeddings.update({index : weight})
+        else:
+            self.weights.update({index : weight})
         return self
 
     def update_multi_precision(self, index, weight, grad, state):
-        print("update multi-precision: " + index)
         # Update all node embeddings
         if index.startswith("dgl:update_all"):
             mfunc, rfunc, ufunc = pickle.loads(grad.asnumpy().tostring())
@@ -72,14 +73,18 @@ class Optimizer(object):
                 _add_params(ufunc, self.weights)
 
             self.graph.update_all(mfunc, rfunc, ufunc)
+            for name in self.graph.ndata.keys():
+                assert name in self.embeddings
+                if self.embeddings[name].handle != self.graph.ndata[name].handle:
+                    self.graph.ndata[name].copyto(self.embeddings[name])
         # Update node embeddings
         elif isinstance(weight, mx.nd.sparse.RowSparseNDArray):
             #TODO this isn't a right way to copy data.
-            grad.copyto(self.weights[index])
+            grad.copyto(self.embeddings[index])
         else:
             # Update model weights.
             grad.copyto(self.weights[index])
-        
+
 
 class DGLKVstore(object):
     def __init__(self, graph_name, embed_dict):
