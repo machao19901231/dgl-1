@@ -1,5 +1,6 @@
 import argparse, time, math
 import os
+os.environ['DGLBACKEND'] = 'mxnet'
 import numpy as np
 import mxnet as mx
 from mxnet import gluon
@@ -202,12 +203,12 @@ def main(args):
     # initialize graph
     dur = []
     for epoch in range(args.n_epochs):
-        for nf, aux in dgl.contrib.sampling.NeighborSampler(g, args.batch_size,
-                                                            args.num_neighbors,
-                                                            neighbor_type='in',
-                                                            shuffle=True,
-                                                            num_hops=args.n_layers+1,
-                                                            seed_nodes=train_nid):
+        for nf in dgl.contrib.sampling.NeighborSampler(g, args.batch_size,
+                args.num_neighbors,
+                neighbor_type='in',
+                shuffle=True,
+                num_hops=args.n_layers+1,
+                seed_nodes=train_nid):
             #nf.copy_from_parent()
             pull_data = mx.nd.sparse.zeros('row_sparse', features.shape)
             row_ids = nf.layer_parent_nid(0).astype('int64')
@@ -233,11 +234,11 @@ def main(args):
 
         num_acc = 0.
 
-        for nf, aux in dgl.contrib.sampling.NeighborSampler(g, args.test_batch_size,
-                                                            args.test_num_neighbors,
-                                                            neighbor_type='in',
-                                                            num_hops=args.n_layers+1,
-                                                            seed_nodes=test_nid):
+        for nf in dgl.contrib.sampling.NeighborSampler(g, args.test_batch_size,
+                args.test_num_neighbors,
+                neighbor_type='in',
+                num_hops=args.n_layers+1,
+                seed_nodes=test_nid):
             #nf.copy_from_parent()
             pull_data = mx.nd.sparse.zeros('row_sparse', features.shape)
             row_ids = nf.layer_parent_nid(0).astype('int64')
