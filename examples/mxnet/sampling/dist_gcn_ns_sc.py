@@ -1,9 +1,16 @@
+from multiprocessing import Process
+import time
+import numa
 import argparse, time, math
 import os
 os.environ['DGLBACKEND'] = 'mxnet'
+#os.environ['MXNET_CPU_PARALLEL_COPY_SIZE'] = '1000000000'
+if os.environ['DMLC_ROLE'] == 'server':
+    numa.bind([3])
 import numpy as np
 import mxnet as mx
 from mxnet import gluon
+from mxnet import profiler
 from functools import partial
 import dgl
 import dgl.function as fn
@@ -21,10 +28,10 @@ class NodeUpdate(gluon.Block):
 
     def forward(self, node):
         h = node.data['h']
-        '''
-        if self.test:
-            h = h * node.data['norm']
-        '''
+        #if self.test:
+        #    h = h * node.data['norm']
+        #else:
+        #    h = h * node.data['sample_norm']
         h = self.dense(h)
         # skip connection
         if self.concat:
@@ -68,7 +75,8 @@ class GCNSampling(gluon.Block):
             nf.layers[i].data['h'] = h
             nf.block_compute(i,
                              fn.copy_src(src='h', out='m'),
-                             lambda node : {'h': node.mailbox['m'].mean(axis=1)},
+                             fn.sum(msg='m', out='h'),
+                             #lambda node : {'h': node.mailbox['m'].mean(axis=1)},
                              layer)
 
         h = nf.layers[-1].data.pop('activation')
@@ -105,11 +113,98 @@ class GCNInfer(gluon.Block):
             nf.layers[i].data['h'] = h
             nf.block_compute(i,
                              fn.copy_src(src='h', out='m'),
-                             lambda node : {'h': node.mailbox['m'].mean(axis=1)},
+                             fn.sum(msg='m', out='h'),
+                             #lambda node : {'h': node.mailbox['m'].mean(axis=1)},
                              layer)
 
         h = nf.layers[-1].data.pop('activation')
         return h
+
+
+def worker_func(worker_id, args, g, features, labels, train_mask, val_mask, test_mask,
+                in_feats, n_classes, n_edges, train_nid, test_nid, n_test_samples):
+    ctx = mx.cpu()
+    profiler.set_config(profile_all=True, aggregate_stats=True,
+            filename='profile_output-%d.json' % worker_id)
+    print("bind to node " + str(worker_id))
+    #numa.bind([worker_id % 3])
+    model = GCNSampling(in_feats,
+                        args.n_hidden,
+                        n_classes,
+                        args.n_layers,
+                        mx.nd.relu,
+                        args.dropout,
+                        prefix='GCN')
+
+    model.initialize(ctx=ctx)
+    loss_fcn = gluon.loss.SoftmaxCELoss()
+
+    infer_model = GCNInfer(in_feats,
+                           args.n_hidden,
+                           n_classes,
+                           args.n_layers,
+                           mx.nd.relu,
+                           prefix='GCN')
+
+    infer_model.initialize(ctx=ctx)
+
+    # use optimizer
+    print(model.collect_params())
+    trainer = gluon.Trainer(model.collect_params(), 'adam',
+                            {'learning_rate': args.lr, 'wd': args.weight_decay},
+                            kvstore=mx.kv.create('dist_sync'))
+
+    # initialize graph
+    dur = []
+    i = 0
+    for epoch in range(args.n_epochs):
+        start = time.time()
+        profiler.set_state('run')
+        for nf in dgl.contrib.sampling.NeighborSampler(g, args.batch_size,
+                args.num_neighbors,
+                neighbor_type='in',
+                shuffle=True,
+                num_hops=args.n_layers+1,
+                seed_nodes=train_nid):
+            sample_end = time.time()
+            nf.copy_from_parent()
+            # forward
+            with mx.autograd.record():
+                pred = model(nf)
+                batch_nids = nf.layer_parent_nid(-1).astype('int64').as_in_context(ctx)
+                batch_labels = labels[batch_nids]
+                loss = loss_fcn(pred, batch_labels)
+                loss = loss.sum() / len(batch_nids)
+
+            loss.backward()
+            #trainer.step(batch_size=1)
+            train_end = time.time()
+            print("sample %.3f, train %.3f" % ((sample_end - start), (train_end - sample_end)))
+            start = train_end
+
+        profiler.set_state('stop')
+        print(profiler.dumps())
+
+        infer_params = infer_model.collect_params()
+
+        for key in infer_params:
+            idx = trainer._param2idx[key]
+            trainer._kvstore.pull(idx, out=infer_params[key].data())
+
+        num_acc = 0.
+
+        for nf in dgl.contrib.sampling.NeighborSampler(g, args.test_batch_size,
+                args.test_num_neighbors,
+                neighbor_type='in',
+                num_hops=args.n_layers+1,
+                seed_nodes=test_nid):
+            nf.copy_from_parent()
+            pred = infer_model(nf)
+            batch_nids = nf.layer_parent_nid(-1).astype('int64').as_in_context(ctx)
+            batch_labels = labels[batch_nids]
+            num_acc += (pred.argmax(axis=1) == batch_labels).sum().asscalar()
+
+        print(str(worker_id) + ": Test Accuracy {:.4f}". format(num_acc/n_test_samples))
 
 
 def main(args):
@@ -119,7 +214,7 @@ def main(args):
     if args.gpu >= 0:
         ctx = mx.gpu(args.gpu)
     else:
-        ctx = mx.cpu()
+        ctx = mx.Context('cpu_shared', 0)
 
     if args.self_loop and not args.dataset.startswith('reddit'):
         data.graph.add_edges_from([(i,i) for i in range(len(data.graph))])
@@ -151,106 +246,36 @@ def main(args):
               n_val_samples,
               n_test_samples))
 
-
-    feat_kv = mx.kv.create('dist_sync')
-    feat_kv.set_optimizer(mx.optimizer.create('DGLOpt', dataset=args.dataset))
-
-    init_data = mx.nd.zeros((1, features.shape[1]))
-    init_data = mx.nd.sparse.row_sparse_array((init_data,
-                    mx.nd.array([0], dtype='int64')), shape=features.shape)
-
-    feat_kv.init(0, init_data)
-    feat_kv.push(0, init_data)
-
-
     # create GCN model
     g = DGLGraph(data.graph, readonly=True)
 
-    #g.ndata['features'] = features
+    g.ndata['features'] = features
 
     num_neighbors = args.num_neighbors
 
     degs = g.in_degrees().astype('float32').as_in_context(ctx)
     norm = mx.nd.expand_dims(1./degs, 1)
-    #g.ndata['norm'] = norm
+    g.ndata['norm'] = norm
+    sample_degs = degs.asnumpy()
+    sample_degs[sample_degs > num_neighbors] = num_neighbors
+    sample_degs = mx.nd.array(sample_degs)
+    sample_norm = mx.nd.expand_dims(1./sample_degs, 1)
+    g.ndata['sample_norm'] = sample_norm.as_in_context(ctx)
 
-    model = GCNSampling(in_feats,
-                        args.n_hidden,
-                        n_classes,
-                        args.n_layers,
-                        mx.nd.relu,
-                        args.dropout,
-                        prefix='GCN')
+    p1 = Process(target=worker_func, args=(0, args, g, features, labels, train_mask, val_mask, test_mask,
+                                           in_feats, n_classes, n_edges, train_nid, test_nid, n_test_samples))
+    p2 = Process(target=worker_func, args=(1, args, g, features, labels, train_mask, val_mask, test_mask,
+                                           in_feats, n_classes, n_edges, train_nid, test_nid, n_test_samples))
+    p3 = Process(target=worker_func, args=(2, args, g, features, labels, train_mask, val_mask, test_mask,
+                                           in_feats, n_classes, n_edges, train_nid, test_nid, n_test_samples))
+    p1.start()
+    p2.start()
+    p3.start()
+    p1.join()
+    p2.join()
+    p3.join()
 
-    model.initialize(ctx=ctx)
-    loss_fcn = gluon.loss.SoftmaxCELoss()
-
-    infer_model = GCNInfer(in_feats,
-                           args.n_hidden,
-                           n_classes,
-                           args.n_layers,
-                           mx.nd.relu,
-                           prefix='GCN')
-
-    infer_model.initialize(ctx=ctx)
-
-    # use optimizer
-    print(model.collect_params())
-    trainer = gluon.Trainer(model.collect_params(), 'adam',
-                            {'learning_rate': args.lr, 'wd': args.weight_decay},
-                            kvstore=mx.kv.create('local'))
-
-    # initialize graph
-    dur = []
-    for epoch in range(args.n_epochs):
-        for nf in dgl.contrib.sampling.NeighborSampler(g, args.batch_size,
-                args.num_neighbors,
-                neighbor_type='in',
-                shuffle=True,
-                num_hops=args.n_layers+1,
-                seed_nodes=train_nid):
-            #nf.copy_from_parent()
-            pull_data = mx.nd.sparse.zeros('row_sparse', features.shape)
-            row_ids = nf.layer_parent_nid(0).astype('int64')
-            feat_kv.row_sparse_pull(0, row_ids=row_ids, out=pull_data)
-            nf.layers[0].data['features'] = pull_data.data
-
-            # forward
-            with mx.autograd.record():
-                pred = model(nf)
-                batch_nids = nf.layer_parent_nid(-1).astype('int64').as_in_context(ctx)
-                batch_labels = labels[batch_nids]
-                loss = loss_fcn(pred, batch_labels)
-                loss = loss.sum() / len(batch_nids)
-
-            loss.backward()
-            trainer.step(batch_size=1)
-
-        infer_params = infer_model.collect_params()
-
-        for key in infer_params:
-            idx = trainer._param2idx[key]
-            trainer._kvstore.pull(idx, out=infer_params[key].data())
-
-        num_acc = 0.
-
-        for nf in dgl.contrib.sampling.NeighborSampler(g, args.test_batch_size,
-                args.test_num_neighbors,
-                neighbor_type='in',
-                num_hops=args.n_layers+1,
-                seed_nodes=test_nid):
-            #nf.copy_from_parent()
-            pull_data = mx.nd.sparse.zeros('row_sparse', features.shape)
-            row_ids = nf.layer_parent_nid(0).astype('int64')
-            feat_kv.row_sparse_pull(0, row_ids=row_ids, out=pull_data)
-            nf.layers[0].data['features'] = pull_data.data
-
-            pred = infer_model(nf)
-            batch_nids = nf.layer_parent_nid(-1).astype('int64').as_in_context(ctx)
-            batch_labels = labels[batch_nids]
-            num_acc += (pred.argmax(axis=1) == batch_labels).sum().asscalar()
-
-        print("Test Accuracy {:.4f}". format(num_acc/n_test_samples))
+    print("parent ends")
 
 
 if __name__ == '__main__':
@@ -280,6 +305,8 @@ if __name__ == '__main__':
             help="graph self-loop (default=False)")
     parser.add_argument("--weight-decay", type=float, default=5e-4,
             help="Weight for L2 loss")
+    parser.add_argument("--num-workers", type=int, default=1,
+            help="The number of workers")
     args = parser.parse_args()
 
     print(args)
