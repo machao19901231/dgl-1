@@ -28,10 +28,10 @@ class NodeUpdate(gluon.Block):
 
     def forward(self, node):
         h = node.data['h']
-        #if self.test:
-        #    h = h * node.data['norm']
-        #else:
-        #    h = h * node.data['sample_norm']
+        if self.test:
+            h = h * node.data['norm']
+        else:
+            h = h * node.data['sample_norm']
         h = self.dense(h)
         # skip connection
         if self.concat:
@@ -177,7 +177,7 @@ def worker_func(worker_id, args, g, features, labels, train_mask, val_mask, test
                 loss = loss.sum() / len(batch_nids)
 
             loss.backward()
-            #trainer.step(batch_size=1)
+            trainer.step(batch_size=1)
             train_end = time.time()
             print("sample %.3f, train %.3f" % ((sample_end - start), (train_end - sample_end)))
             start = train_end
@@ -266,14 +266,10 @@ def main(args):
                                            in_feats, n_classes, n_edges, train_nid, test_nid, n_test_samples))
     p2 = Process(target=worker_func, args=(1, args, g, features, labels, train_mask, val_mask, test_mask,
                                            in_feats, n_classes, n_edges, train_nid, test_nid, n_test_samples))
-    p3 = Process(target=worker_func, args=(2, args, g, features, labels, train_mask, val_mask, test_mask,
-                                           in_feats, n_classes, n_edges, train_nid, test_nid, n_test_samples))
     p1.start()
     p2.start()
-    p3.start()
     p1.join()
     p2.join()
-    p3.join()
 
     print("parent ends")
 
