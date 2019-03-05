@@ -917,7 +917,13 @@ class NodeFlowIndex(GraphIndex):
         The offsets of the flows.
     """
     def __init__(self, handle, parent, node_mapping, edge_mapping, layers, flows):
-        super(NodeFlowIndex, self).__init__(handle, parent.is_multigraph(), parent.is_readonly())
+        if parent is None:
+            super(NodeFlowIndex, self).__init__(handle, False, True)
+        else:
+            super(NodeFlowIndex, self).__init__(
+                handle,
+                parent.is_multigraph(),
+                parent.is_readonly())
         self._parent = parent
         self._node_mapping = node_mapping
         self._edge_mapping = edge_mapping
