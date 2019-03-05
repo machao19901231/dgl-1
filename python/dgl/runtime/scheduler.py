@@ -551,7 +551,7 @@ def schedule_nodeflow_compute(graph,
         if inplace:
             ir.WRITE_ROW_INPLACE_(var_nf, var_dest_nodes, final_feat)
         else:
-            ir.WRITE_DICT_(var_nf, final_feat)
+            ir.WRITE_ROW_(var_nf, var_dest_nodes, final_feat)
 
 def _check_builtin_func_list(func_list):
     """Check whether func_list only contains builtin functions."""
