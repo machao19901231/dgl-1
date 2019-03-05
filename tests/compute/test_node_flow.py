@@ -253,6 +253,15 @@ def test_copy():
         nf.block_compute(i, partial(msg_func, ind=i), partial(reduce_func, ind=i))
 
 
+def test_block_adj_matrix():
+    num_layers = 3
+    g = generate_rand_graph(100)
+    nf = create_mini_batch(g, num_layers)
+    assert nf.num_layers == num_layers + 1
+    for i in range(nf.num_blocks):
+        adj = nf.block_adjacency_matrix(i, True, F.cpu())
+
+
 if __name__ == '__main__':
     test_basic()
     test_copy()
@@ -261,3 +270,4 @@ if __name__ == '__main__':
     test_flow_compute()
     test_prop_flows()
     test_self_loop()
+    test_block_adj_matrix()

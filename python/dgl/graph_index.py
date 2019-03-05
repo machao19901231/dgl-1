@@ -958,6 +958,81 @@ class NodeFlowIndex(GraphIndex):
         """
         return self._flows
 
+    def block_edges(self, block_id):
+        # TODO
+        pass
+
+    def layer_size(self, layer_id):
+        """Return the number of nodes in a specified layer.
+
+        Parameters
+        ----------
+        layer_id : int
+            the specified layer to return the number of nodes.
+        """
+        return int(self.layers[layer_id + 1]) - int(self.layers[layer_id])
+
+    @utils.cached_member(cache='_cache', prefix='adj')
+    def block_adjacency_matrix(self, block_id, transpose, ctx):
+        """Return the adjacency matrix representation of this graph.
+
+        By default, a row of returned adjacency matrix represents the destination
+        of an edge and the column represents the source.
+
+        When transpose is True, a row represents the source and a column represents
+        a destination.
+
+        Parameters
+        ----------
+        transpose : bool
+            A flag to transpose the returned adjacency matrix.
+        ctx : context
+            The context of the returned matrix.
+
+        Returns
+        -------
+        SparseTensor
+            The adjacency matrix.
+        utils.Index
+            A index for data shuffling due to sparse format change. Return None
+            if shuffle is not required.
+        """
+        if not isinstance(transpose, bool):
+            raise DGLError('Expect bool value for "transpose" arg,'
+                           ' but got %s.' % (type(transpose)))
+        fmt = F.get_preferred_sparse_format()
+        # We need to extract two layers.
+        rst = _CAPI_DGLGraphGetBlockAdj(self._handle, transpose, fmt,
+                                        self.layers[block_id], self.layers[block_id + 2])
+        if transpose:
+            num_rows = self.layer_size(block_id)
+            num_cols = self.layer_size(block_id + 1)
+        else:
+            num_rows = self.layer_size(block_id + 1)
+            num_cols = self.layer_size(block_id)
+
+        if fmt == "csr":
+            indptr = F.copy_to(utils.toindex(rst(0)).tousertensor(), ctx)
+            indices = F.copy_to(utils.toindex(rst(1)).tousertensor(), ctx)
+            shuffle = utils.toindex(rst(2))
+            dat = F.ones(indices.shape, dtype=F.float32, ctx=ctx)
+            return F.sparse_matrix(dat, ('csr', indices, indptr),
+                                   (num_rows, num_cols))[0], shuffle
+        elif fmt == "coo":
+            ## FIXME(minjie): data type
+            idx = F.copy_to(utils.toindex(rst(0)).tousertensor(), ctx)
+            m = self.block_size(block_id)
+            idx = F.reshape(idx, (2, m))
+            dat = F.ones((m,), dtype=F.float32, ctx=ctx)
+            adj, shuffle_idx = F.sparse_matrix(dat, ('coo', idx), (num_rows, num_cols))
+            shuffle_idx = utils.toindex(shuffle_idx) if shuffle_idx is not None else None
+            return adj, shuffle_idx
+        else:
+            raise Exception("unknown format")
+
+    def block_incidence_matrix(self, block_id):
+        raise Exception("Unsupported yet")
+
     def __getstate__(self):
         raise NotImplementedError(
             "SubgraphIndex pickling is not supported yet.")

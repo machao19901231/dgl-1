@@ -618,12 +618,14 @@ class NodeFlow(DGLBaseGraph):
         assert reduce_func is not None
 
         if is_all(v):
-            dest_nodes = utils.toindex(self.layer_nid(block_id + 1))
-            u, v, _ = self._graph.in_edges(dest_nodes)
-            u = utils.toindex(self._glb2lcl_nid(u.tousertensor(), block_id))
-            v = utils.toindex(self._glb2lcl_nid(v.tousertensor(), block_id + 1))
-            dest_nodes = utils.toindex(F.arange(0, self.layer_size(block_id + 1)))
-            eid = utils.toindex(F.arange(0, self.block_size(block_id)))
+            with ir.prog() as prog:
+                scheduler.schedule_nodeflow_update_all(graph=self,
+                                                       block_id=block_id,
+                                                       message_func=message_func,
+                                                       reduce_func=reduce_func,
+                                                       apply_func=apply_node_func,
+                                                       inplace=inplace)
+                Runtime.run(prog)
         else:
             dest_nodes = utils.toindex(v)
             u, v, eid = self._graph.in_edges(dest_nodes)
@@ -634,18 +636,18 @@ class NodeFlow(DGLBaseGraph):
                                                          block_id + 1))
             eid = utils.toindex(self._glb2lcl_eid(eid.tousertensor(), block_id))
 
-        with ir.prog() as prog:
-            scheduler.schedule_nodeflow_compute(graph=self,
-                                                block_id=block_id,
-                                                u=u,
-                                                v=v,
-                                                eid=eid,
-                                                dest_nodes=dest_nodes,
-                                                message_func=message_func,
-                                                reduce_func=reduce_func,
-                                                apply_func=apply_node_func,
-                                                inplace=inplace)
-            Runtime.run(prog)
+            with ir.prog() as prog:
+                scheduler.schedule_nodeflow_compute(graph=self,
+                                                    block_id=block_id,
+                                                    u=u,
+                                                    v=v,
+                                                    eid=eid,
+                                                    dest_nodes=dest_nodes,
+                                                    message_func=message_func,
+                                                    reduce_func=reduce_func,
+                                                    apply_func=apply_node_func,
+                                                    inplace=inplace)
+                Runtime.run(prog)
 
     def prop_flow(self, message_funcs="default", reduce_funcs="default",
                   apply_node_funcs="default", flow_range=ALL, inplace=False):

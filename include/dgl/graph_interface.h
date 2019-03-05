@@ -332,6 +332,9 @@ class GraphInterface {
    * \return a vector of IdArrays.
    */
   virtual std::vector<IdArray> GetAdj(bool transpose, const std::string &fmt) const = 0;
+
+  virtual std::vector<IdArray> GetAdjSlice(bool transpose, const std::string &fmt,
+		                                   size_t start, size_t end, bool remap) const = 0;
 };
 
 /*! \brief Subgraph data structure */
