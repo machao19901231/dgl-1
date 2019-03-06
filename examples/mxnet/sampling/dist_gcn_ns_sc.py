@@ -4,6 +4,7 @@ import numa
 import argparse, time, math
 import os
 os.environ['DGLBACKEND'] = 'mxnet'
+os.environ['OMP_NUM_THREADS'] = '8'
 #os.environ['MXNET_CPU_PARALLEL_COPY_SIZE'] = '1000000000'
 if os.environ['DMLC_ROLE'] == 'server':
     numa.bind([3])
@@ -126,8 +127,7 @@ def worker_func(worker_id, args, g, features, labels, train_mask, val_mask, test
     ctx = mx.cpu()
     profiler.set_config(profile_all=True, aggregate_stats=True,
             filename='profile_output-%d.json' % worker_id)
-    print("bind to node " + str(worker_id))
-    #numa.bind([worker_id % 3])
+    numa.bind([worker_id % 3])
     model = GCNSampling(in_feats,
                         args.n_hidden,
                         n_classes,
@@ -159,14 +159,13 @@ def worker_func(worker_id, args, g, features, labels, train_mask, val_mask, test
     i = 0
     for epoch in range(args.n_epochs):
         start = time.time()
-        profiler.set_state('run')
         for nf in dgl.contrib.sampling.NeighborSampler(g, args.batch_size,
                 args.num_neighbors,
                 neighbor_type='in',
+                num_workers=32,
                 shuffle=True,
                 num_hops=args.n_layers+1,
                 seed_nodes=train_nid):
-            sample_end = time.time()
             nf.copy_from_parent()
             # forward
             with mx.autograd.record():
@@ -178,24 +177,19 @@ def worker_func(worker_id, args, g, features, labels, train_mask, val_mask, test
 
             loss.backward()
             trainer.step(batch_size=1)
-            train_end = time.time()
-            print("sample %.3f, train %.3f" % ((sample_end - start), (train_end - sample_end)))
-            start = train_end
-
-        profiler.set_state('stop')
-        print(profiler.dumps())
+        train_time = time.time() - start
 
         infer_params = infer_model.collect_params()
-
         for key in infer_params:
             idx = trainer._param2idx[key]
             trainer._kvstore.pull(idx, out=infer_params[key].data())
 
         num_acc = 0.
-
+        start = time.time()
         for nf in dgl.contrib.sampling.NeighborSampler(g, args.test_batch_size,
                 args.test_num_neighbors,
                 neighbor_type='in',
+                num_workers=32,
                 num_hops=args.n_layers+1,
                 seed_nodes=test_nid):
             nf.copy_from_parent()
@@ -203,8 +197,9 @@ def worker_func(worker_id, args, g, features, labels, train_mask, val_mask, test
             batch_nids = nf.layer_parent_nid(-1).astype('int64').as_in_context(ctx)
             batch_labels = labels[batch_nids]
             num_acc += (pred.argmax(axis=1) == batch_labels).sum().asscalar()
+        infer_time = time.time() - start
 
-        print(str(worker_id) + ": Test Accuracy {:.4f}". format(num_acc/n_test_samples))
+        print(str(worker_id) + ": Test Accuracy {:.4f}, train: {:.3f}, infer: {:.3f}". format(num_acc/n_test_samples, train_time, infer_time))
 
 
 def main(args):
@@ -266,10 +261,14 @@ def main(args):
                                            in_feats, n_classes, n_edges, train_nid, test_nid, n_test_samples))
     p2 = Process(target=worker_func, args=(1, args, g, features, labels, train_mask, val_mask, test_mask,
                                            in_feats, n_classes, n_edges, train_nid, test_nid, n_test_samples))
+    p3 = Process(target=worker_func, args=(2, args, g, features, labels, train_mask, val_mask, test_mask,
+                                           in_feats, n_classes, n_edges, train_nid, test_nid, n_test_samples))
     p1.start()
     p2.start()
+    p3.start()
     p1.join()
     p2.join()
+    p3.join()
 
     print("parent ends")
 
