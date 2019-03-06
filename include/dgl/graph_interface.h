@@ -333,8 +333,9 @@ class GraphInterface {
    */
   virtual std::vector<IdArray> GetAdj(bool transpose, const std::string &fmt) const = 0;
 
-  virtual std::vector<IdArray> GetAdjSlice(bool transpose, const std::string &fmt,
-		                                   size_t start, size_t end, bool remap) const = 0;
+  virtual std::vector<IdArray> GetNodeFlowSlice(bool transpose, const std::string &fmt,
+                                                size_t layer0_size, size_t layer1_start,
+                                                size_t layer1_end, bool remap) const = 0;
 };
 
 /*! \brief Subgraph data structure */

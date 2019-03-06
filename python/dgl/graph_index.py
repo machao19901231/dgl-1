@@ -959,8 +959,15 @@ class NodeFlowIndex(GraphIndex):
         return self._flows
 
     def block_edges(self, block_id):
-        # TODO
-        pass
+        rst = _CAPI_DGLGraphGetBlockAdj(self._handle, False, "coo",
+                                        self.layers[block_id + 1] - self.layers[block_id],
+                                        self.layers[block_id + 1], self.layers[block_id + 2])
+        idx = utils.toindex(rst(0)).tousertensor()
+        eid = utils.toindex(rst(1))
+        num_edges = int(len(idx) / 2)
+        assert len(eid) == num_edges
+        print(idx[num_edges:len(idx)])
+        return utils.toindex(idx[num_edges:len(idx)]), utils.toindex(idx[0:num_edges]), eid
 
     def layer_size(self, layer_id):
         """Return the number of nodes in a specified layer.
@@ -1003,7 +1010,8 @@ class NodeFlowIndex(GraphIndex):
         fmt = F.get_preferred_sparse_format()
         # We need to extract two layers.
         rst = _CAPI_DGLGraphGetBlockAdj(self._handle, transpose, fmt,
-                                        self.layers[block_id], self.layers[block_id + 2])
+                                        self.layers[block_id + 1] - self.layers[block_id],
+                                        self.layers[block_id + 1], self.layers[block_id + 2])
         if transpose:
             num_rows = self.layer_size(block_id)
             num_cols = self.layer_size(block_id + 1)

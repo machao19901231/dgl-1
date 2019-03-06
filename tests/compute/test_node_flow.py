@@ -259,15 +259,17 @@ def test_block_adj_matrix():
     nf = create_mini_batch(g, num_layers)
     assert nf.num_layers == num_layers + 1
     for i in range(nf.num_blocks):
-        adj = nf.block_adjacency_matrix(i, True, F.cpu())
+        print("block: " + str(i))
+        adj, _ = nf._graph.block_adjacency_matrix(i, False, F.cpu())
+        print(adj.shape)
 
 
 if __name__ == '__main__':
     test_basic()
+    test_block_adj_matrix()
     test_copy()
     test_apply_nodes()
     test_apply_edges()
     test_flow_compute()
     test_prop_flows()
     test_self_loop()
-    test_block_adj_matrix()
