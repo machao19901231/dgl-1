@@ -20,7 +20,7 @@ namespace dgl {
 namespace network {
 
 static char* global_data_buffer = nullptr;
-const int kMaxBufferSize = 200 * 1024 * 1024;  // 200 MB
+const int kMaxBufferSize = 100 * 1024 * 1024;  // 100 MB
 
 DGL_REGISTER_GLOBAL("network._CAPI_DGLSenderCreate")
 .set_body([] (DGLArgs args, DGLRetValue* rv) {
