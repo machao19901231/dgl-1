@@ -114,7 +114,6 @@ class GCNInfer(gluon.Block):
 def main(args):
     # Start recv
     recv_train = dgl.contrib.sampling.SamplerReceiver(ip="127.0.0.1", port=50051, num_sender=1)
-    time.sleep(3) # wait sender to connect to recv_train
     recv_infer = dgl.contrib.sampling.SamplerReceiver(ip="127.0.0.1", port=50052, num_sender=1)
 
     # load and preprocess dataset

@@ -11,6 +11,7 @@ from dgl.data import register_data_args, load_data
 def main(args):
     # Start sender
     sender_train = dgl.contrib.sampling.SamplerSender(ip='127.0.0.1', port=50051)
+    time.sleep(2) # wait server
     sender_infer = dgl.contrib.sampling.SamplerSender(ip='127.0.0.1', port=50052)
 
     # load and preprocess dataset
