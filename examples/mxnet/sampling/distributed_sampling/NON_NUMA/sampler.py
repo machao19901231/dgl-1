@@ -26,37 +26,26 @@ def main(args):
     # create GCN model
     g = DGLGraph(data.graph, readonly=True)
 
-    # sender_train = dgl.contrib.sampling.SamplerSender(ip='127.0.0.1', port=50051)
-    # sender_infer = dgl.contrib.sampling.SamplerSender(ip='127.0.0.1', port=50052)
+    sender_train = dgl.contrib.sampling.SamplerSender(ip='127.0.0.1', port=50051)
+    sender_infer = dgl.contrib.sampling.SamplerSender(ip='127.0.0.1', port=50052)
 
     for epoch in range(args.n_epochs):
         # Train sampler
-        index = 0
         for nf in dgl.contrib.sampling.NeighborSampler(g, args.batch_size,
                                                        args.num_neighbors,
                                                        neighbor_type='in',
                                                        shuffle=True,
                                                        num_hops=args.n_layers+1,
                                                        seed_nodes=train_nid):
-            print("train")
-            print(nf)
-            print(index)
-            index = index + 1
-            # sender_train.Send(nf)
+            sender_train.Send(nf)
 
         # Infer sampler
-        index = 0
         for nf in dgl.contrib.sampling.NeighborSampler(g, args.test_batch_size,
                                                        g.number_of_nodes(),
                                                        neighbor_type='in',
                                                        num_hops=args.n_layers+1,
                                                        seed_nodes=test_nid):
-            print("infer")
-            print(nf)
-            print(index)
-            index = index + 1
-            # sender_infer.Send(nf)
-    break
+            sender_infer.Send(nf)
  
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='GCN')
