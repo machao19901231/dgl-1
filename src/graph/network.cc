@@ -19,10 +19,10 @@ using dgl::runtime::NDArray;
 namespace dgl {
 namespace network {
 
-// Each message cannot larger than 100 MB
+// Each message cannot larger than 50 MB
 static char* sender_data_buffer = nullptr;
 static char* recv_data_buffer = nullptr;
-const int kMaxBufferSize = 100 * 1024 * 1024;
+const int kMaxBufferSize = 50 * 1024 * 1024;
 
 DGL_REGISTER_GLOBAL("network._CAPI_DGLSenderCreate")
 .set_body([] (DGLArgs args, DGLRetValue* rv) {

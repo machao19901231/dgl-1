@@ -1,13 +1,13 @@
 from multiprocessing import Process
 import time
-#import numa
+import numa
 import argparse, time, math
 import os
 os.environ['DGLBACKEND'] = 'mxnet'
 os.environ['OMP_NUM_THREADS'] = '8'
 #os.environ['MXNET_CPU_PARALLEL_COPY_SIZE'] = '1000000000'
-#if os.environ['DMLC_ROLE'] == 'server':
-#    numa.bind([3])
+if os.environ['DMLC_ROLE'] == 'server':
+    numa.bind([3])
 import numpy as np
 import mxnet as mx
 from mxnet import gluon
@@ -127,7 +127,7 @@ def worker_func(worker_id, args, g, features, labels, train_mask, val_mask, test
     ctx = mx.cpu()
     profiler.set_config(profile_all=True, aggregate_stats=True,
             filename='profile_output-%d.json' % worker_id)
-    #numa.bind([worker_id % 3])
+    numa.bind([worker_id % 3])
     model = GCNSampling(in_feats,
                         args.n_hidden,
                         n_classes,
