@@ -37,7 +37,7 @@ def _create_sampler_receiver(ip_addr, port, num_sender, queue_size):
     return _CAPI_DGLReceiverCreate(ip_addr, port, num_sender, queue_size)
 
 def _send_subgraph(sender, nodeflow):
-    """ Send sampled subgraph (Nodeflow) to remote trainer.
+    """Send sampled subgraph (Nodeflow) to remote trainer.
 
     Parameters
     ----------
@@ -60,7 +60,7 @@ def _send_subgraph(sender, nodeflow):
                              flows_offsets)
 
 def _batch_send_subgraph(sender, nodeflow_list):
-    """ Send a batch of sampled subgraph (Nodeflow) to remote trainer.
+    """Send a batch of sampled subgraph (Nodeflow) to remote trainer.
 
     Parameters
     ----------
@@ -74,7 +74,7 @@ def _batch_send_subgraph(sender, nodeflow_list):
     raiseNotImplementedError("_batch_send_subgraph: not implemented!")
 
 def _recv_subgraph(receiver, graph):
-    """ Receive sampled subgraph (NodeFlow) from remote sampler.
+    """Receive sampled subgraph (NodeFlow) from remote sampler.
 
     Parameters
     ----------

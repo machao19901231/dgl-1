@@ -31,6 +31,7 @@ def main(args):
 
     for epoch in range(args.n_epochs):
         # Train sampler
+        index = 0
         for nf in dgl.contrib.sampling.NeighborSampler(g, args.batch_size,
                                                        args.num_neighbors,
                                                        neighbor_type='in',
@@ -39,9 +40,12 @@ def main(args):
                                                        seed_nodes=train_nid):
             print("train")
             print(nf)
+            print(index)
+            index = index + 1
             # sender_train.Send(nf)
 
         # Infer sampler
+        index = 0
         for nf in dgl.contrib.sampling.NeighborSampler(g, args.test_batch_size,
                                                        g.number_of_nodes(),
                                                        neighbor_type='in',
@@ -49,10 +53,11 @@ def main(args):
                                                        seed_nodes=test_nid):
             print("infer")
             print(nf)
+            print(index)
+            index = index + 1
             # sender_infer.Send(nf)
+    break
  
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='GCN')
     register_data_args(parser)
