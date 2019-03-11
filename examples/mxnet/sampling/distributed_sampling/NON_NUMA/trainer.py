@@ -7,6 +7,7 @@ import dgl
 import dgl.function as fn
 from dgl import DGLGraph
 from dgl.data import register_data_args, load_data
+import time
 
 
 class NodeUpdate(gluon.Block):
@@ -111,6 +112,11 @@ class GCNInfer(gluon.Block):
 
 
 def main(args):
+    # Start recv
+    recv_train = dgl.contrib.sampling.SamplerReceiver(ip="127.0.0.1", port=50051, graph=g, num_sender=1)
+    time.sleep(3) # wait sender to connect to recv_train
+    recv_infer = dgl.contrib.sampling.SamplerReceiver(ip="127.0.0.1", port=50052, graph=g, num_sender=1)
+
     # load and preprocess dataset
     data = load_data(args)
 
@@ -188,9 +194,6 @@ def main(args):
 
     # initialize graph
     dur = []
-   
-    recv_train = dgl.contrib.sampling.SamplerReceiver(ip="127.0.0.1", port=50051, graph=g, num_sender=1)
-    recv_infer = dgl.contrib.sampling.SamplerReceiver(ip="127.0.0.1", port=50052, graph=g, num_sender=1)
 
     for epoch in range(args.n_epochs):
         for i in range(150):

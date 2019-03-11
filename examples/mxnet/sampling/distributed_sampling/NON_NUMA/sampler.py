@@ -9,6 +9,10 @@ from dgl import DGLGraph
 from dgl.data import register_data_args, load_data
 
 def main(args):
+    # Start sender
+    sender_train = dgl.contrib.sampling.SamplerSender(ip='127.0.0.1', port=50051)
+    sender_infer = dgl.contrib.sampling.SamplerSender(ip='127.0.0.1', port=50052)
+
     # load and preprocess dataset
     data = load_data(args)
 
@@ -25,9 +29,6 @@ def main(args):
 
     # create GCN model
     g = DGLGraph(data.graph, readonly=True)
-
-    sender_train = dgl.contrib.sampling.SamplerSender(ip='127.0.0.1', port=50051)
-    sender_infer = dgl.contrib.sampling.SamplerSender(ip='127.0.0.1', port=50052)
 
     for epoch in range(args.n_epochs):
         # Train sampler
