@@ -22,7 +22,7 @@ namespace network {
 // Each message cannot larger than 200 MB
 static char* sender_data_buffer = nullptr;
 static char* recv_data_buffer = nullptr;
-const int kMaxBufferSize = 200 * 1024 * 1024;
+const int kMaxBufferSize = 5 * 1024 * 1024 * 1024;
 
 DGL_REGISTER_GLOBAL("network._CAPI_DGLSenderCreate")
 .set_body([] (DGLArgs args, DGLRetValue* rv) {

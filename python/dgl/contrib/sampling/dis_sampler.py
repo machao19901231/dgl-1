@@ -63,9 +63,9 @@ class SamplerReceiver(object):
         total number of sampler nodes, use 1 by default. 
         SamplerReceiver can recv message from multiple senders concurrently.
     queue_size : int
-        size (bytes) of message queue, use 500 MB by default.
+        size (bytes) of message queue, use 5 GB by default.
     """
-    def __init__(self, ip, port, num_sender=1, queue_size=500*1024*1024):
+    def __init__(self, ip, port, num_sender=1, queue_size=5*1024*1024*1024):
         self._ip = ip
         self._port = port
         self._num_sender = num_sender
