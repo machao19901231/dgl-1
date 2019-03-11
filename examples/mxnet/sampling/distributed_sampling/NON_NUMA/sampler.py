@@ -12,6 +12,11 @@ def main(args):
     # load and preprocess dataset
     data = load_data(args)
 
+    if args.gpu >= 0:
+        ctx = mx.gpu(args.gpu)
+    else:
+        ctx = mx.cpu()
+
     if args.self_loop and not args.dataset.startswith('reddit'):
         data.graph.add_edges_from([(i,i) for i in range(len(data.graph))])
 
