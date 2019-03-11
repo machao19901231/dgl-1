@@ -70,7 +70,7 @@ DGL_REGISTER_GLOBAL("network._CAPI_DGLReceiverCreate")
     int num_sender = args[2];
     int queue_size = args[3];
     network::Communicator* comm = new network::SocketCommunicator();
-    comm->Initialize(false, ip.c_str(), port, num_sender, queue_size);
+    comm->Initialize(false, ip.c_str(), port, num_sender, kMaxBufferSize);
     CommunicatorHandle chandle = static_cast<CommunicatorHandle>(comm);
     recv_data_buffer = new char[kMaxBufferSize];
     *rv = chandle;
