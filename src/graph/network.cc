@@ -39,6 +39,7 @@ DGL_REGISTER_GLOBAL("network._CAPI_DGLSenderCreate")
 
 DGL_REGISTER_GLOBAL("network._CAPI_SenderSendSubgraph")
 .set_body([] (DGLArgs args, DGLRetValue* rv) {
+    std::cout << "111\n";
     CommunicatorHandle chandle = args[0];
     GraphHandle ghandle = args[1];
     ImmutableGraph *ptr = static_cast<ImmutableGraph*>(ghandle);
@@ -48,6 +49,7 @@ DGL_REGISTER_GLOBAL("network._CAPI_SenderSendSubgraph")
     const IdArray edge_mapping = IdArray::FromDLPack(CreateTmpDLManagedTensor(args[3]));
     const IdArray layer_offsets = IdArray::FromDLPack(CreateTmpDLManagedTensor(args[4]));
     const IdArray flow_offsets = IdArray::FromDLPack(CreateTmpDLManagedTensor(args[5]));
+    std::cout << "222\n";
     int64_t data_size = network::SerializeSampledSubgraph(
                              sender_data_buffer,
                              csr,
@@ -55,6 +57,7 @@ DGL_REGISTER_GLOBAL("network._CAPI_SenderSendSubgraph")
                              edge_mapping,
                              layer_offsets,
                              flow_offsets);
+    std::cout << "333\n";
     CHECK_GT(data_size, 0);
     // Send msg via network
     int size = comm->Send(sender_data_buffer, data_size);
