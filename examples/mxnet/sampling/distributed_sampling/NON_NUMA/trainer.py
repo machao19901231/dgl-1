@@ -194,6 +194,7 @@ def main(args):
 
     for epoch in range(args.n_epochs):
         for i in range(150):
+            print(i)
             nf = recv_train.Receive()
             nf.copy_from_parent()
             # forward
@@ -216,6 +217,7 @@ def main(args):
         num_acc = 0.
 
         for i in range(110):
+            print(i)
             nf = recv_infer.Receive()
             nf.copy_from_parent()
             pred = infer_model(nf)
