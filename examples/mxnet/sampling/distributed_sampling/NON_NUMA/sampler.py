@@ -39,6 +39,7 @@ def main(args):
                                                        shuffle=True,
                                                        num_hops=args.n_layers+1,
                                                        seed_nodes=train_nid):
+            print("train")
             sender_train.Send(nf)
 
         # Infer sampler
@@ -47,6 +48,7 @@ def main(args):
                                                        neighbor_type='in',
                                                        num_hops=args.n_layers+1,
                                                        seed_nodes=test_nid):
+            print("infer")
             sender_infer.Send(nf)
  
 if __name__ == '__main__':
