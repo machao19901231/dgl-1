@@ -26,8 +26,11 @@ def main(args):
     # create GCN model
     g = DGLGraph(data.graph, readonly=True)
 
+    # sender_train = dgl.contrib.sampling.SamplerSender(ip='127.0.0.1', port=50051)
+    # sender_infer = dgl.contrib.sampling.SamplerSender(ip='127.0.0.1', port=50052)
+
     for epoch in range(args.n_epochs):
-        # Train
+        # Train sampler
         for nf in dgl.contrib.sampling.NeighborSampler(g, args.batch_size,
                                                        args.num_neighbors,
                                                        neighbor_type='in',
@@ -36,7 +39,9 @@ def main(args):
                                                        seed_nodes=train_nid):
             print("train")
             print(nf)
-        # Infer
+            # sender_train.Send(nf)
+
+        # Infer sampler
         for nf in dgl.contrib.sampling.NeighborSampler(g, args.test_batch_size,
                                                        g.number_of_nodes(),
                                                        neighbor_type='in',
@@ -44,18 +49,15 @@ def main(args):
                                                        seed_nodes=test_nid):
             print("infer")
             print(nf)
-
+            # sender_infer.Send(nf)
+ 
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='GCN')
     register_data_args(parser)
-    parser.add_argument("--dropout", type=float, default=0.5,
-            help="dropout probability")
     parser.add_argument("--gpu", type=int, default=-1,
             help="gpu")
-    parser.add_argument("--lr", type=float, default=3e-2,
-            help="learning rate")
     parser.add_argument("--n-epochs", type=int, default=200,
             help="number of training epochs")
     parser.add_argument("--batch-size", type=int, default=1000,
@@ -64,14 +66,8 @@ if __name__ == '__main__':
             help="test batch size")
     parser.add_argument("--num-neighbors", type=int, default=3,
             help="number of neighbors to be sampled")
-    parser.add_argument("--n-hidden", type=int, default=16,
-            help="number of hidden gcn units")
-    parser.add_argument("--n-layers", type=int, default=1,
-            help="number of hidden gcn layers")
     parser.add_argument("--self-loop", action='store_true',
             help="graph self-loop (default=False)")
-    parser.add_argument("--weight-decay", type=float, default=5e-4,
-            help="Weight for L2 loss")
     args = parser.parse_args()
 
     print(args)
