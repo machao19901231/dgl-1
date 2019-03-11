@@ -73,6 +73,8 @@ if __name__ == '__main__':
             help="number of neighbors to be sampled")
     parser.add_argument("--self-loop", action='store_true',
             help="graph self-loop (default=False)")
+    parser.add_argument("--n-layers", type=int, default=1,
+            help="number of hidden gcn layers")
     args = parser.parse_args()
 
     print(args)
