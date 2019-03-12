@@ -11,8 +11,6 @@ from dgl.data import register_data_args, load_data
 def main(args):
     # Start sender
     sender_train = dgl.contrib.sampling.SamplerSender(ip='127.0.0.1', port=50051)
-    time.sleep(2) # wait server
-    sender_infer = dgl.contrib.sampling.SamplerSender(ip='127.0.0.1', port=50052)
 
     # load and preprocess dataset
     data = load_data(args)
@@ -39,17 +37,8 @@ def main(args):
                                                        shuffle=True,
                                                        num_hops=args.n_layers+1,
                                                        seed_nodes=train_nid):
-            print("train")
+            print("send nodeflow...")
             sender_train.Send(nf)
-
-        # Infer sampler
-        for nf in dgl.contrib.sampling.NeighborSampler(g, args.test_batch_size,
-                                                       g.number_of_nodes(),
-                                                       neighbor_type='in',
-                                                       num_hops=args.n_layers+1,
-                                                       seed_nodes=test_nid):
-            print("infer")
-            sender_infer.Send(nf)
  
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='GCN')

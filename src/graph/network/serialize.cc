@@ -39,7 +39,6 @@ int64_t SerializeSampledSubgraph(char* data,
   total_size += indices_size;
   total_size += edge_ids_size;
   total_size += kNumTensor * sizeof(int64_t);
-  LOG(INFO) << "total size: " << total_size;
   // Write binary data to buffer
   char* data_ptr = data;
   dgl_id_t* node_map_data = static_cast<dgl_id_t*>(node_mapping->data);
