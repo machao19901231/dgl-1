@@ -22,6 +22,7 @@ namespace network {
 // Each message cannot larger than 5 GB
 static char* sender_data_buffer = nullptr;
 static char* recv_data_buffer = nullptr;
+// TODO(chao): make this configurable
 const int64_t kMaxBufferSize = 5000000000;
 
 DGL_REGISTER_GLOBAL("network._CAPI_DGLSenderCreate")
@@ -48,7 +49,6 @@ DGL_REGISTER_GLOBAL("network._CAPI_SenderSendSubgraph")
     const IdArray edge_mapping = IdArray::FromDLPack(CreateTmpDLManagedTensor(args[3]));
     const IdArray layer_offsets = IdArray::FromDLPack(CreateTmpDLManagedTensor(args[4]));
     const IdArray flow_offsets = IdArray::FromDLPack(CreateTmpDLManagedTensor(args[5]));
-    LOG(INFO) << "aaaaaaaa";
     // Serialize nodeflow to send_data_buffer
     int64_t data_size = network::SerializeSampledSubgraph(
                              sender_data_buffer,
@@ -57,7 +57,6 @@ DGL_REGISTER_GLOBAL("network._CAPI_SenderSendSubgraph")
                              edge_mapping,
                              layer_offsets,
                              flow_offsets);
-    LOG(INFO) << "bbbbbbbbb";
     CHECK_GT(data_size, 0);
     // Send msg via network
     int64_t size = comm->Send(sender_data_buffer, data_size);

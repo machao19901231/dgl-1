@@ -196,7 +196,6 @@ def main(args):
 
     for epoch in range(args.n_epochs):
         for i in range(150):
-            print("train")
             print(i)
             nf = recv_train.Receive(g)
             nf.copy_from_parent()
@@ -220,8 +219,7 @@ def main(args):
         num_acc = 0.
         index = 0
         for i in range(110):
-            print("infer")
-            print(index)
+            print(i)
             index = index + 1
             nf = recv_infer.Receive(g)
             nf.copy_from_parent()
