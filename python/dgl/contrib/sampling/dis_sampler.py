@@ -12,9 +12,9 @@ class SamplerSender(object):
     Parameters
     ----------
     ip : str
-        ip address of remote trainer machine.
+        ip address of remote trainer machine
     port : int
-        port of remote trainer machine.
+        port of remote trainer machine
     """
     def __init__(self, ip, port):
         self._ip = ip
@@ -34,7 +34,7 @@ class SamplerSender(object):
         Parameters
         ----------
         nodeflow : NodeFlow
-            sampled NodeFlow object.
+            sampled NodeFlow object
         """
         _send_subgraph(self._sender, nodeflow)
 
@@ -44,33 +44,30 @@ class SamplerSender(object):
         Parameters
         ----------
         nodeflow_list : list
-            a list of NodeFlow objects.
+            a list of NodeFlow objects
         """
         _batch_send_subgraph(self._sender, nodeflow_list)
 
 class SamplerReceiver(object):
     """The SamplerReceiver class for DGL distributed sampler.
 
-    Users use this class to receive sampled subgraph from remote samplers.
+    Users use this class to receive sampled subgraph from remote samplers, 
+    and SamplerReceiver can recv messages from multiple senders concurrently.
 
     Parameters
     ----------
     ip : str
-        ip address of trainer machine.
+        ip address of trainer machine
     port : int
-        listen port of trainer machine.
+        listen port of trainer machine
     num_sender : int
-        total number of sampler nodes, use 1 by default. 
-        SamplerReceiver can recv message from multiple senders concurrently.
-    queue_size : int
-        size (bytes) of message queue, use 500 MB by default.
+        total number of sampler nodes, use 1 by default
     """
-    def __init__(self, ip, port, num_sender=1, queue_size=500*1024*1024):
+    def __init__(self, ip, port, num_sender=1):
         self._ip = ip
         self._port = port
         self._num_sender = num_sender
-        self._queue_size = queue_size
-        self._receiver = _create_sampler_receiver(ip, port, num_sender, queue_size)
+        self._receiver = _create_sampler_receiver(ip, port, num_sender)
 
     def __del__(self):
         """Finalize Receiver
