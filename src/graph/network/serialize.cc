@@ -92,8 +92,11 @@ int64_t SerializeSampledSubgraph(char* data,
   LOG(INFO) << "666";
   // edge_ids (CSR)
   *(reinterpret_cast<int64_t*>(data_ptr)) = edge_ids_size;
+  LOG(INFO) << "6666-aaa";
   data_ptr += sizeof(int64_t);
+  LOG(INFO) << "6666-bbb";
   memcpy(data_ptr, edge_ids, edge_ids_size);
+  LOG(INFO) << "6666-ccc";
   data_ptr += edge_ids_size;
   LOG(INFO) << "777";
   // indptr (CSR)
