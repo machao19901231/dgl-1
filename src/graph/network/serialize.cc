@@ -62,37 +62,37 @@ int64_t SerializeSampledSubgraph(char* data,
   data_ptr += sizeof(int64_t);
   memcpy(data_ptr, node_map_data, node_mapping_size);
   data_ptr += node_mapping_size;
-  OG(INFO) << "222";
+  LOG(INFO) << "222";
   // layer_offsets
   *(reinterpret_cast<int64_t*>(data_ptr)) = layer_offsets_size;
   data_ptr += sizeof(int64_t);
   memcpy(data_ptr, layer_off_data, layer_offsets_size);
   data_ptr += layer_offsets_size;
-  OG(INFO) << "333";
+  LOG(INFO) << "333";
   // flow_offsets
   *(reinterpret_cast<int64_t*>(data_ptr)) = flow_offsets_size;
   data_ptr += sizeof(int64_t);
   memcpy(data_ptr, flow_off_data, flow_offsets_size);
   data_ptr += flow_offsets_size;
-  OG(INFO) << "444";
+  LOG(INFO) << "444";
   // edge_mapping
   *(reinterpret_cast<int64_t*>(data_ptr)) = edge_mapping_size;
   data_ptr += sizeof(int64_t);
   memcpy(data_ptr, edge_map_data, edge_mapping_size);
   data_ptr += edge_mapping_size;
-  OG(INFO) << "555";
+  LOG(INFO) << "555";
   // indices (CSR)
   *(reinterpret_cast<int64_t*>(data_ptr)) = indices_size;
   data_ptr += sizeof(int64_t);
   memcpy(data_ptr, indices, indices_size);
   data_ptr += indices_size;
-  OG(INFO) << "666";
+  LOG(INFO) << "666";
   // edge_ids (CSR)
   *(reinterpret_cast<int64_t*>(data_ptr)) = edge_ids_size;
   data_ptr += sizeof(int64_t);
   memcpy(data_ptr, edge_ids, edge_ids_size);
   data_ptr += edge_ids_size;
-  OG(INFO) << "777";
+  LOG(INFO) << "777";
   // indptr (CSR)
   *(reinterpret_cast<int64_t*>(data_ptr)) = indptr_size;
   data_ptr += sizeof(int64_t);
