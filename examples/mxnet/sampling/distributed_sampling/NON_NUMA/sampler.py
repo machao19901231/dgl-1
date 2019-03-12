@@ -7,10 +7,13 @@ import dgl
 import dgl.function as fn
 from dgl import DGLGraph
 from dgl.data import register_data_args, load_data
+import time
 
 def main(args):
     # Start sender
     sender_train = dgl.contrib.sampling.SamplerSender(ip='127.0.0.1', port=50051)
+    time.sleep(2)
+    sender_infer = dgl.contrib.sampling.SamplerSender(ip='127.0.0.1', port=50052)
 
     # load and preprocess dataset
     data = load_data(args)
@@ -37,8 +40,17 @@ def main(args):
                                                        shuffle=True,
                                                        num_hops=args.n_layers+1,
                                                        seed_nodes=train_nid):
-            print("send nodeflow...")
+            print("send train nodeflow...")
             sender_train.Send(nf)
+
+        for nf in dgl.contrib.sampling.NeighborSampler(g, args.test_batch_size,
+                                                       g.number_of_nodes(),
+                                                       neighbor_type='in',
+                                                       num_hops=args.n_layers+1,
+                                                       seed_nodes=test_nid):
+            print("send infer nodeflow...")
+            sender_infer.Send(nf)
+
  
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='GCN')

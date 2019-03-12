@@ -25,12 +25,19 @@ int64_t SerializeSampledSubgraph(char* data,
   // For each component, we first write its size at the
   // begining of the buffer and then write its binary data
   int64_t node_mapping_size = node_mapping->shape[0] * sizeof(dgl_id_t);
+  LOG(INFO) << "node_mapping_size: " << node_mapping_size;
   int64_t edge_mapping_size = edge_mapping->shape[0] * sizeof(dgl_id_t);
+  LOG(INFO) << "edge_mapping_size: " << edge_mapping_size;
   int64_t layer_offsets_size = layer_offsets->shape[0] * sizeof(dgl_id_t);
+  LOG(INFO) << "layer_offsets_size: " << layer_offsets_size;
   int64_t flow_offsets_size = flow_offsets->shape[0] * sizeof(dgl_id_t);
+  LOG(INFO) << "flow_offsets_size: " << flow_offsets_size;
   int64_t indptr_size = csr->indptr.size() * sizeof(int64_t);
+  LOG(INFO) << "indptr_size: " << indptr_size;
   int64_t indices_size = csr->indices.size() * sizeof(dgl_id_t);
+  LOG(INFO) << "indices_size: " << indices_size;
   int64_t edge_ids_size = csr->edge_ids.size() * sizeof(dgl_id_t);
+  LOG(INFO) << "edge_ids_size: " << edge_ids_size;
   total_size += node_mapping_size;
   total_size += edge_mapping_size;
   total_size += layer_offsets_size;
@@ -39,6 +46,7 @@ int64_t SerializeSampledSubgraph(char* data,
   total_size += indices_size;
   total_size += edge_ids_size;
   total_size += kNumTensor * sizeof(int64_t);
+  LOG(INFO) << "total_size: " << total_size;
   // Write binary data to buffer
   char* data_ptr = data;
   dgl_id_t* node_map_data = static_cast<dgl_id_t*>(node_mapping->data);
@@ -48,36 +56,43 @@ int64_t SerializeSampledSubgraph(char* data,
   int64_t* indptr = static_cast<int64_t*>(csr->indptr.data());
   dgl_id_t* indices = static_cast<dgl_id_t*>(csr->indices.data());
   dgl_id_t* edge_ids = static_cast<dgl_id_t*>(csr->edge_ids.data());
+  LOG(INFO) << "111";
   // node_mapping
   *(reinterpret_cast<int64_t*>(data_ptr)) = node_mapping_size;
   data_ptr += sizeof(int64_t);
   memcpy(data_ptr, node_map_data, node_mapping_size);
   data_ptr += node_mapping_size;
+  OG(INFO) << "222";
   // layer_offsets
   *(reinterpret_cast<int64_t*>(data_ptr)) = layer_offsets_size;
   data_ptr += sizeof(int64_t);
   memcpy(data_ptr, layer_off_data, layer_offsets_size);
   data_ptr += layer_offsets_size;
+  OG(INFO) << "333";
   // flow_offsets
   *(reinterpret_cast<int64_t*>(data_ptr)) = flow_offsets_size;
   data_ptr += sizeof(int64_t);
   memcpy(data_ptr, flow_off_data, flow_offsets_size);
   data_ptr += flow_offsets_size;
+  OG(INFO) << "444";
   // edge_mapping
   *(reinterpret_cast<int64_t*>(data_ptr)) = edge_mapping_size;
   data_ptr += sizeof(int64_t);
   memcpy(data_ptr, edge_map_data, edge_mapping_size);
   data_ptr += edge_mapping_size;
+  OG(INFO) << "555";
   // indices (CSR)
   *(reinterpret_cast<int64_t*>(data_ptr)) = indices_size;
   data_ptr += sizeof(int64_t);
   memcpy(data_ptr, indices, indices_size);
   data_ptr += indices_size;
+  OG(INFO) << "666";
   // edge_ids (CSR)
   *(reinterpret_cast<int64_t*>(data_ptr)) = edge_ids_size;
   data_ptr += sizeof(int64_t);
   memcpy(data_ptr, edge_ids, edge_ids_size);
   data_ptr += edge_ids_size;
+  OG(INFO) << "777";
   // indptr (CSR)
   *(reinterpret_cast<int64_t*>(data_ptr)) = indptr_size;
   data_ptr += sizeof(int64_t);

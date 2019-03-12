@@ -114,6 +114,7 @@ class GCNInfer(gluon.Block):
 def main(args):
     # Start recv
     recv_train = dgl.contrib.sampling.SamplerReceiver(ip="127.0.0.1", port=50051, num_sender=1)
+    recv_infer = dgl.contrib.sampling.SamplerReceiver(ip="127.0.0.1", port=50052, num_sender=1)
 
     # load and preprocess dataset
     data = load_data(args)
@@ -218,14 +219,11 @@ def main(args):
 
         num_acc = 0.
         index = 0
-        for nf in dgl.contrib.sampling.NeighborSampler(g, args.test_batch_size,
-                                                       g.number_of_nodes(),
-                                                       neighbor_type='in',
-                                                       num_hops=args.n_layers+1,
-                                                       seed_nodes=test_nid):
+        for i in range(110):
             print("infer")
             print(index)
             index = index + 1
+            nf = recv_infer.Receive()
             nf.copy_from_parent()
             pred = infer_model(nf)
             batch_nids = nf.layer_parent_nid(-1).astype('int64').as_in_context(ctx)
