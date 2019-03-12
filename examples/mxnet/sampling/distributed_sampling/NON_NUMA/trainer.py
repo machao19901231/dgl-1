@@ -223,7 +223,7 @@ def main(args):
             print("infer")
             print(index)
             index = index + 1
-            nf = recv_infer.Receive()
+            nf = recv_infer.Receive(g)
             nf.copy_from_parent()
             pred = infer_model(nf)
             batch_nids = nf.layer_parent_nid(-1).astype('int64').as_in_context(ctx)
