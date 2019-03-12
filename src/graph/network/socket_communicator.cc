@@ -13,7 +13,7 @@ namespace network {
 
 const int kTimeOut = 5;  // 5 minutes for socket timeout
 const int kMaxConnection = 1024;  // 1024 maximal socket connection
-const int64_t kMaxBuffer = 500 * 1024 * 1024;  // 500 MB buffer
+const int64_t kMaxBuffer = 5 * 1024 * 1024 * 1024;  // 5 GB buffer
 
 bool SocketCommunicator::Initialize(bool is_sender,
                                     const char* ip,
