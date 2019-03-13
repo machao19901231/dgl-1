@@ -24,6 +24,8 @@ static char* sender_data_buffer = nullptr;
 static char* recv_data_buffer = nullptr;
 // TODO(chao): make this configurable
 const int64_t kMaxBufferSize = 5000000000;
+// 20 GB queue size
+const int64_t kQueueSize = 20000000000;
 
 DGL_REGISTER_GLOBAL("network._CAPI_DGLSenderCreate")
 .set_body([] (DGLArgs args, DGLRetValue* rv) {
@@ -71,7 +73,7 @@ DGL_REGISTER_GLOBAL("network._CAPI_DGLReceiverCreate")
     int port = args[1];
     int num_sender = args[2];
     network::Communicator* comm = new network::SocketCommunicator();
-    comm->Initialize(false, ip.c_str(), port, num_sender, kMaxBufferSize);
+    comm->Initialize(false, ip.c_str(), port, num_sender, kQueueSize);
     CommunicatorHandle chandle = static_cast<CommunicatorHandle>(comm);
     recv_data_buffer = new char[kMaxBufferSize];
     *rv = chandle;
