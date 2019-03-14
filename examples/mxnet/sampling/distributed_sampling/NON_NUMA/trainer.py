@@ -113,8 +113,7 @@ class GCNInfer(gluon.Block):
 
 def main(args):
     # Start recv
-    recv_train = dgl.contrib.sampling.SamplerReceiver(ip="127.0.0.1", port=50051, num_sender=3)
-    recv_infer = dgl.contrib.sampling.SamplerReceiver(ip="127.0.0.1", port=50052, num_sender=3)
+    recv_train = dgl.contrib.sampling.SamplerReceiver(ip="127.0.0.1", port=50051, num_sender=10)
 
     # load and preprocess dataset
     data = load_data(args)
@@ -193,7 +192,8 @@ def main(args):
 
     # initialize graph
     dur = []
-
+    start = time.time()
+    
     for epoch in range(args.n_epochs):
         for i in range(150):
             print(i)
@@ -216,17 +216,22 @@ def main(args):
             idx = trainer._param2idx[key]
             trainer._kvstore.pull(idx, out=infer_params[key].data())
 
-        num_acc = 0.
-        for i in range(110):
-            print(i)
-            nf = recv_infer.Receive(g)
-            nf.copy_from_parent()
-            pred = infer_model(nf)
-            batch_nids = nf.layer_parent_nid(-1).astype('int64').as_in_context(ctx)
-            batch_labels = labels[batch_nids]
-            num_acc += (pred.argmax(axis=1) == batch_labels).sum().asscalar()
+    print("train_time:")
+    print(train_time)
 
-        print("Test Accuracy {:.4f}". format(num_acc/n_test_samples))
+    num_acc = 0.
+    for nf in dgl.contrib.sampling.NeighborSampler(g, args.test_batch_size,
+                                                       g.number_of_nodes(),
+                                                       neighbor_type='in',
+                                                       num_hops=args.n_layers+1,
+                                                       seed_nodes=test_nid):
+        nf.copy_from_parent()
+        pred = infer_model(nf)
+        batch_nids = nf.layer_parent_nid(-1).astype('int64').as_in_context(ctx)
+        batch_labels = labels[batch_nids]
+        num_acc += (pred.argmax(axis=1) == batch_labels).sum().asscalar()
+
+    print("Test Accuracy {:.4f}". format(num_acc/n_test_samples))
 
 
 if __name__ == '__main__':
