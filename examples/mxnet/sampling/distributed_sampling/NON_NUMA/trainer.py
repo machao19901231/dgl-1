@@ -217,10 +217,8 @@ def main(args):
             trainer._kvstore.pull(idx, out=infer_params[key].data())
 
         num_acc = 0.
-        index = 0
         for i in range(110):
             print(i)
-            index = index + 1
             nf = recv_infer.Receive(g)
             nf.copy_from_parent()
             pred = infer_model(nf)
