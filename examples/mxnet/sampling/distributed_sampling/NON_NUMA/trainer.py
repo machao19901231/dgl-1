@@ -113,7 +113,7 @@ class GCNInfer(gluon.Block):
 
 def main(args):
     # Start recv
-    recv_train = dgl.contrib.sampling.SamplerReceiver(ip="172.31.73.221", port=2049, num_sender=10)
+    recv_train = dgl.contrib.sampling.SamplerReceiver(ip="172.31.73.221", port=2049, num_sender=5)
 
     # load and preprocess dataset
     data = load_data(args)
@@ -196,7 +196,7 @@ def main(args):
 
     for epoch in range(args.n_epochs):
         print(epoch)
-        for i in range(150):
+        for i in range(153):
             print(i)
             nf = recv_train.Receive(g)
             nf.copy_from_parent()
@@ -217,6 +217,7 @@ def main(args):
             idx = trainer._param2idx[key]
             trainer._kvstore.pull(idx, out=infer_params[key].data())
 
+    train_time = time.time() - start
     print("train_time:")
     print(train_time)
 
