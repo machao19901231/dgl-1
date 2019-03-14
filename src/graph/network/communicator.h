@@ -40,8 +40,8 @@ class Communicator {
   virtual bool Initialize(bool is_sender,
                           const char* ip,
                           int port,
-                          int num_sender,
-                          int64_t queue_size) = 0;
+                          int num_sender = 1,
+                          int64_t queue_size = 5 * 1024 * 1024) = 0;
   /*!
    * \brief Send message to receiver node
    * \param src data pointer
