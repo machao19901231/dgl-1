@@ -14,10 +14,10 @@ namespace network {
 
 // TODO(chao): make these number configurable
 
-// Message cannot larger than 3GB
-const long long kMaxBufferSize = 3221225472;
-// Size of message queue is 5GB
-const long long kQueueSize = 5368709120;
+// Message cannot larger than 300 MB
+const long long kMaxBufferSize = 300 * 1024 * 2014;
+// Size of message queue is 2 GB
+const long long kQueueSize = 2147483648;
 
 }  // namespace network
 }  // namespace dgl
