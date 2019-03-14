@@ -11,7 +11,7 @@ import time
 
 def main(args):
     # Start sender
-    sender_train = dgl.contrib.sampling.SamplerSender(ip='127.0.0.1', port=50051)
+    sender_train = dgl.contrib.sampling.SamplerSender(ip='172.31.73.221', port=2049)
 
     # load and preprocess dataset
     data = load_data(args)
