@@ -193,8 +193,9 @@ def main(args):
     # initialize graph
     dur = []
     start = time.time()
-    
+
     for epoch in range(args.n_epochs):
+        print(epoch)
         for i in range(150):
             print(i)
             nf = recv_train.Receive(g)
