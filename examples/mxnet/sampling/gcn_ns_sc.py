@@ -190,6 +190,7 @@ def main(args):
     dur = []
     start = time.time()
     for epoch in range(args.n_epochs):
+        print(epoch)
         for nf in dgl.contrib.sampling.NeighborSampler(g, args.batch_size,
                                                        args.num_neighbors,
                                                        neighbor_type='in',
