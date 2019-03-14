@@ -188,6 +188,7 @@ def main(args):
 
     # initialize graph
     dur = []
+    start = time.time()
     for epoch in range(args.n_epochs):
         for nf in dgl.contrib.sampling.NeighborSampler(g, args.batch_size,
                                                        args.num_neighbors,
@@ -212,21 +213,24 @@ def main(args):
         for key in infer_params:
             idx = trainer._param2idx[key]
             trainer._kvstore.pull(idx, out=infer_params[key].data())
+    train_time = time.time() - start
 
-        num_acc = 0.
+    print("train_time:")
+    print(train_time)
 
-        for nf in dgl.contrib.sampling.NeighborSampler(g, args.test_batch_size,
+    num_acc = 0.
+    for nf in dgl.contrib.sampling.NeighborSampler(g, args.test_batch_size,
                                                        g.number_of_nodes(),
                                                        neighbor_type='in',
                                                        num_hops=args.n_layers+1,
                                                        seed_nodes=test_nid):
-            nf.copy_from_parent()
-            pred = infer_model(nf)
-            batch_nids = nf.layer_parent_nid(-1).astype('int64').as_in_context(ctx)
-            batch_labels = labels[batch_nids]
-            num_acc += (pred.argmax(axis=1) == batch_labels).sum().asscalar()
+        nf.copy_from_parent()
+        pred = infer_model(nf)
+        batch_nids = nf.layer_parent_nid(-1).astype('int64').as_in_context(ctx)
+        batch_labels = labels[batch_nids]
+        num_acc += (pred.argmax(axis=1) == batch_labels).sum().asscalar()
 
-        print("Test Accuracy {:.4f}". format(num_acc/n_test_samples))
+    print("Test Accuracy {:.4f}". format(num_acc/n_test_samples))
 
 
 if __name__ == '__main__':
