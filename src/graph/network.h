@@ -21,3 +21,5 @@ const int64_t kQueueSize = 5368709120;
 
 }  // namespace network
 }  // namespace dgl
+
+#endif  // DGL_GRAPH_NETWORK_H_
