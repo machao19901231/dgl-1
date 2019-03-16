@@ -60,9 +60,9 @@ if __name__ == '__main__':
             help="graph self-loop (default=False)")
     parser.add_argument("--n-layers", type=int, default=1,
             help="number of hidden gcn layers")
-    arser.add_argument("--ip", type=str, default='127.0.0.1',
+    parser.add_argument("--ip", type=str, default='127.0.0.1',
             help="ip address of remote trainer machine")
-    arser.add_argument("--port", type=int, default=2049,
+    parser.add_argument("--port", type=int, default=2049,
             help="listen port of remote trainer machine")
     args = parser.parse_args()
 

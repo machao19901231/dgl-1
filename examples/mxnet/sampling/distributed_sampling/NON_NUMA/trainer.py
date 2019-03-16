@@ -262,7 +262,7 @@ if __name__ == '__main__':
             help="Weight for L2 loss")
     arser.add_argument("--ip", type=str, default='127.0.0.1',
             help="ip address of remote trainer machine")
-    arser.add_argument("--port", type=int, default=2049,
+    parser.add_argument("--port", type=int, default=2049,
             help="listen port of socket")
     args = parser.parse_args()
 
