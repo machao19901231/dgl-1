@@ -1,12 +1,21 @@
 ### Run test
 
-First we need to start trainer:
+First we need to change the `--ip` and `--port` option in `run_trainer.sh` and `run_sampler.sh`
+
+Then we need to start trainer:
 
 ```
 ./run_trainer.sh
 ```
 
-Then we need to start sampler:
+When you see the message:
+
+```
+[04:48:20] /home/ubuntu/dgl_da/src/graph/network/socket_communicator.cc:68: Bind to 172.31.73.221:2049
+[04:48:20] /home/ubuntu/dgl_da/src/graph/network/socket_communicator.cc:74: Listen on 172.31.73.221:2049, wait sender connect ...
+```
+
+You can start sampler:
 
 ```
 ./run_sampler.sh
