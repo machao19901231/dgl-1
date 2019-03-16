@@ -1,0 +1,1 @@
+DGLBACKEND=mxnet python3 trainer.py --ip 172.31.73.221 --port-0 2049 --port-1 2050 --port-2 2051 --dataset reddit-self-loop --num-neighbors 2 --batch-size 1000 --test-batch-size 500 --n-hidden 64

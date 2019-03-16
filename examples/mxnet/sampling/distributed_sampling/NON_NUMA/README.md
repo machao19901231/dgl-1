@@ -1,8 +1,6 @@
 ### Run test
 
-First we need to change the `--ip` and `--port` option in `run_trainer.sh` and `run_sampler.sh`
-
-For trainer, the ip address should always be `127.0.0.1`.
+First we need to change the `--ip` and `--port` in `run_trainer.sh` and `run_sampler.sh`
 
 Then we need to start trainer node:
 
