@@ -260,7 +260,7 @@ if __name__ == '__main__':
             help="graph self-loop (default=False)")
     parser.add_argument("--weight-decay", type=float, default=5e-4,
             help="Weight for L2 loss")
-    arser.add_argument("--ip", type=str, default='127.0.0.1',
+    parser.add_argument("--ip", type=str, default='127.0.0.1',
             help="ip address of remote trainer machine")
     parser.add_argument("--port", type=int, default=2049,
             help="listen port of socket")
