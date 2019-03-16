@@ -206,7 +206,7 @@ def worker_func(worker_id, args, g, features, labels, train_mask, val_mask, test
         batch_labels = labels[batch_nids]
         num_acc += (pred.argmax(axis=1) == batch_labels).sum().asscalar()
 
-    print(str(worker_id) + ": Test Accuracy {:.4f}, train: {:.3f}, infer: {:.3f}". format(num_acc/n_test_samples, train_time, infer_time))
+    print(str(worker_id) + ": Test Accuracy {:.4f}, train: {:.3f}". format(num_acc/n_test_samples, train_time))
 
 
 def main(args):
