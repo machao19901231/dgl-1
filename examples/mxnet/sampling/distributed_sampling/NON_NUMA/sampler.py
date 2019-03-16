@@ -31,26 +31,17 @@ def main(args):
     g = DGLGraph(data.graph, readonly=True)
 
     for epoch in range(args.n_epochs):
-        # Train sampler
+        # Here we onlt send nodeflow for training
+        idx = 0
         for nf in dgl.contrib.sampling.NeighborSampler(g, args.batch_size,
                                                        args.num_neighbors,
                                                        neighbor_type='in',
                                                        shuffle=True,
                                                        num_hops=args.n_layers+1,
                                                        seed_nodes=train_nid):
-            print("send train nodeflow...")
+            print("send train nodeflow: %d" %(idx))
             sender_train.Send(nf)
-
-        """
-        for nf in dgl.contrib.sampling.NeighborSampler(g, args.test_batch_size,
-                                                       g.number_of_nodes(),
-                                                       neighbor_type='in',
-                                                       num_hops=args.n_layers+1,
-                                                       seed_nodes=test_nid):
-            print("send infer nodeflow...")
-            sender_infer.Send(nf)
-        """
-
+            idx += 1
  
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='GCN')

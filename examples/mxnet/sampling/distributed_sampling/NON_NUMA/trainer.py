@@ -195,9 +195,8 @@ def main(args):
     start = time.time()
 
     for epoch in range(args.n_epochs):
-        print(epoch)
         for i in range(153):
-            print(i)
+            print("Epoch: %d, subgraph: %d" %(epoch, i))
             nf = recv_train.Receive(g)
             nf.copy_from_parent()
             # forward
