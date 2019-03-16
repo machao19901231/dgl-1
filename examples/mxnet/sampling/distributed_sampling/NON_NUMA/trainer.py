@@ -113,7 +113,7 @@ class GCNInfer(gluon.Block):
 
 def main(args):
     # Start recv
-    recv_train = dgl.contrib.sampling.SamplerReceiver(ip="127.0.0.1", port=args.port, num_sender=10)
+    recv_train = dgl.contrib.sampling.SamplerReceiver(ip=args.ip, port=args.port, num_sender=10)
 
     # load and preprocess dataset
     data = load_data(args)
@@ -260,6 +260,8 @@ if __name__ == '__main__':
             help="graph self-loop (default=False)")
     parser.add_argument("--weight-decay", type=float, default=5e-4,
             help="Weight for L2 loss")
+    arser.add_argument("--ip", type=str, default='127.0.0.1',
+            help="ip address of remote trainer machine")
     arser.add_argument("--port", type=int, default=2049,
             help="listen port of socket")
     args = parser.parse_args()
